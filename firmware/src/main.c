@@ -66,6 +66,10 @@ CANFD_MSG_RX_ATTRIBUTE msgAttr = CANFD_MSG_RX_DATA_FRAME;
 bool CANRX_ON = 0;  // flag to check if CAN is receiving
 bool CANTX_ON = 0;  // flag to check if CAN is transmitting
 
+// ############# TX CAN FRAME ###############################
+static uint8_t message_CAN_TX[64];
+uint8_t cantx_message[8] = {10, 20, 30, 40, 50, 60, 70, 80};
+
 // ############# ADC ########################################
 
 static uint8_t message_ADC[64];  // CAN message to send ADC data
@@ -74,7 +78,13 @@ uint16_t APPS_average = 0;       // average of APPS1 and APPS2
 uint16_t APPS_percent = 0;       // 0-100% of average of APPS1 and APPS2
 bool apps_error = 0;             // error if APPS1 and APPS2 are 10% apart
 bool error_flag = 0;             //  used in apps function to check if there is an error
-uint8_t cantx_message[8] = {10, 20, 30, 40, 50, 60, 70, 80};
+
+uint8_t Brake_Pressure = 0;      // 0-50
+uint32_t Target_Power = 0;       // 0-85000
+uint32_t Current_Power = 0;      // 0-85000
+uint16_t Inverter_Voltage = 0;   // 0-620
+uint16_t Inverter_Temperature = 0; // 0-300
+ 
 
 void Read_ADC(ADCHS_CHANNEL_NUM channel);
 void Read_CAN(void);
@@ -145,8 +155,29 @@ int main(void) {
             previousMillis[1] = currentMillis[1];
         }
         // Send CAN---------------------------------------
+
+        memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
+        memset(cantx_message, 0x00, sizeof(cantx_message));
+        memset(message_ADC, 0x00, sizeof(message_ADC));
+
         currentMillis[2] = millis();
-        if (currentMillis[2] - previousMillis[2] >= 100) {
+        if (currentMillis[2] - previousMillis[2] >= 5) {
+            message_CAN_TX[0] = APPS_percent; // APPS_percent 0-100%
+            message_CAN_TX[1] = Brake_Pressure; // Brake_Pressure 0-50
+            //Target_Power byte 2,3 and 4
+            message_CAN_TX[2] = (Target_Power >> 16) & 0xFF;
+            message_CAN_TX[3] = (Target_Power >> 8) & 0xFF;
+            message_CAN_TX[4] = Target_Power & 0xFF;
+            //Current_Power byte 5,6 and 7
+            message_CAN_TX[5] = (Current_Power >> 16) & 0xFF;
+            message_CAN_TX[6] = (Current_Power >> 8) & 0xFF;
+            message_CAN_TX[7] = Current_Power & 0xFF;
+            Send_CAN(0x20, message_CAN_TX, 8);
+
+
+            Send_CAN(0x21, cantx_message, 8);
+            Send_CAN(0x22, cantx_message, 8);
+
             Send_CAN(0x420, cantx_message, 8);
 
             message_ADC[0] = ADC[0] >> 8;  // APPS1
