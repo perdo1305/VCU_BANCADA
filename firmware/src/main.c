@@ -34,6 +34,36 @@
 // *****************************************************************************
 // *****************************************************************************
 
+// Inverter CAN IDs
+#define SetCurrent_ID 0x01 //byte 0-1  
+#define SetBrakeCurrent_ID 0x02 //byte 0-1
+#define SetERPM_ID 0x03 //byte 0-3
+#define SetPosition_ID 0x04 //byte 0-1
+#define SetRelativeCurrent_ID 0x05 //byte 0-1
+#define SetRelativeBrakeCurrent_ID 0x06 //byte 0-1
+#define SetDigitalOutput_ID 0x07    //byte 0-3
+#define SetMaxACCurrent_ID 0x08 //byte 0-1
+#define SetMaxACBrakeCurrent_ID 0x09 //byte 0-1
+#define SetMaxDCCurrent_ID 0x0A //byte 0-1
+#define SetMaxDCBrakeCurrent_ID 0x0B //byte 0-1
+#define DriveEnable_ID 0x0C //byte 0
+
+//mensagens inverter
+int8_t SetCurrent[2] = {0, 0};
+int8_t SetBrakeCurrent[2] = {0, 0};
+int8_t SetERPM[4] = {0, 0, 0, 0};
+int8_t SetPosition[2] = {0, 0};
+int8_t SetRelativeCurrent[2] = {0, 0};
+int8_t SetRelativeBrakeCurrent[2] = {0, 0};
+int8_t SetDigitalOutput[4] = {0, 0, 0, 0};
+int8_t SetMaxACCurrent[2] = {0, 0};
+int8_t SetMaxACBrakeCurrent[2] = {0, 0};
+int8_t SetMaxDCCurrent[2] = {0, 0};
+int8_t SetMaxDCBrakeCurrent[2] = {0, 0};
+int8_t DriveEnable[1] = {0};
+
+
+
 // Define a macro DEBUG para ativar ou desativar o debug_printf
 #define DEBUG 1
 #define LABVIEW 0
@@ -85,8 +115,10 @@ uint32_t Current_Power = 0;      // 0-85000
 uint16_t Inverter_Voltage = 0;   // 0-620
 uint16_t Inverter_Temperature = 0; // 0-300
  
+bool error_flag = 0;             // used in apps function to check if there is an error
+uint8_t cantx_message[8] = {10, 20, 30, 40, 50, 60, 70, 80};
 
-void Read_ADC(ADCHS_CHANNEL_NUM channel);
+void Read_ADC(ADCHS_CHANNEL_NUM channel); 
 void Read_CAN(void);
 bool APPS_Function(uint16_t APPS1, uint16_t APPS2);
 void Send_CAN(uint32_t id, uint8_t* message, uint8_t size);
@@ -101,11 +133,9 @@ unsigned int millis(void) {
 int main(void) {
     /* Initialize all modules */
     SYS_Initialize(NULL);
-    UART1_Initialize();
-    CAN1_Initialize();
 
-    ADCHS_ModulesEnable(ADCHS_MODULE0_MASK);
-    ADCHS_ModulesEnable(ADCHS_MODULE3_MASK);
+    ADCHS_ModulesEnable(ADCHS_MODULE0_MASK); //APPS1
+    ADCHS_ModulesEnable(ADCHS_MODULE3_MASK); //APPS2
 
     printf("██████╗░███████╗░██████╗███████╗████████╗\r\n");
     printf("██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝\r\n");
@@ -305,4 +335,109 @@ bool APPS_Function(uint16_t APPS1, uint16_t APPS2) {
     // debug_printf("APPSA%d APPSB%d APPST%d APPS_ERROR%d\r", APPS1, APPS2, APPS_percent, error_flag);
     //  debug_printf("APPS1:10\n");
     return error_flag;
+}
+
+
+void setSetCurrent(int16_t current) {
+    current = current * 10;
+    SetCurrent[0] = current >> 8;
+    SetCurrent[1] = current;
+    Send_CAN(SetCurrent_ID, SetCurrent, 2);
+}
+
+void setSetBrakeCurrent(int16_t brakeCurrent) {
+    brakeCurrent = brakeCurrent * 10;
+    SetBrakeCurrent[0] = brakeCurrent >> 8;
+    SetBrakeCurrent[1] = brakeCurrent;
+    Send_CAN(SetBrakeCurrent_ID, SetBrakeCurrent, 2);
+}
+
+void setSetERPM(int32_t ERPM) {
+    SetERPM[0] = ERPM >> 24;
+    SetERPM[1] = ERPM >> 16;
+    SetERPM[2] = ERPM >> 8;
+    SetERPM[3] = ERPM;
+    Send_CAN(SetERPM_ID, SetERPM, 4);
+}
+
+void setSetPosition(int16_t position) {
+    position = position * 10;
+    SetPosition[0] = position >> 8;
+    SetPosition[1] = position;
+    Send_CAN(SetPosition_ID, SetPosition, 2);
+}
+
+void setSetRelativeCurrent(int16_t relativecurrent) {
+    //This value must be between -100 and 100 and must be multiplied by 10 before sending.
+    if (relativecurrent > 100) {
+        relativecurrent = 100;
+    } else if (relativecurrent < -100) {
+        relativecurrent = -100;
+    }
+    relativecurrent = relativecurrent * 10;
+    SetRelativeCurrent[0] = relativecurrent >> 8;
+    SetRelativeCurrent[1] = relativecurrent;
+    Send_CAN(SetRelativeCurrent_ID, SetRelativeCurrent, 2);
+}
+
+void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
+    //This value must be between 0 and 100 and must be multiplied by 10 before sending 
+    if (relativebrakecurrent > 100) {
+        relativebrakecurrent = 100;
+    } else if (relativebrakecurrent < 0) {
+        relativebrakecurrent = 0;
+    }
+    relativebrakecurrent = relativebrakecurrent * 10;
+    SetRelativeBrakeCurrent[0] = relativebrakecurrent >> 8;
+    SetRelativeBrakeCurrent[1] = relativebrakecurrent;
+    Send_CAN(SetRelativeBrakeCurrent_ID, SetRelativeBrakeCurrent, 2);
+}
+
+void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitaloutput3, bool digitaloutput4) {
+    SetDigitalOutput[0] = digitaloutput1;
+    SetDigitalOutput[1] = digitaloutput2;
+    SetDigitalOutput[2] = digitaloutput3;
+    SetDigitalOutput[3] = digitaloutput4;
+    Send_CAN(SetDigitalOutput_ID, SetDigitalOutput, 4);
+}
+
+void setSetMaxACCurrent(int16_t maxcurrent) {
+    maxcurrent = maxcurrent * 10;
+    SetMaxACCurrent[0] = maxcurrent >> 8;
+    SetMaxACCurrent[1] = maxcurrent;
+    Send_CAN(SetMaxACCurrent_ID, SetMaxACCurrent, 2);
+}
+
+void setSetMaxACBrakeCurrent(int16_t maxbrakecurrent) {
+    //This value must be multiplied by 10 before sending, only negative currents are accepted.
+    if (maxbrakecurrent > 0) {
+        maxbrakecurrent = 0;
+    }
+    maxbrakecurrent = maxbrakecurrent * 10;
+    SetMaxACBrakeCurrent[0] = maxbrakecurrent >> 8;
+    SetMaxACBrakeCurrent[1] = maxbrakecurrent;
+    Send_CAN(SetMaxACBrakeCurrent_ID, SetMaxACBrakeCurrent, 2);
+}
+
+void setSetMaxDCCurrent(int16_t maxdccurrent) {
+    maxdccurrent = maxdccurrent * 10;
+    SetMaxDCCurrent[0] = maxdccurrent >> 8;
+    SetMaxDCCurrent[1] = maxdccurrent;
+    Send_CAN(SetMaxDCCurrent_ID, SetMaxDCCurrent, 2);
+}
+
+void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
+    //The value has to be multiplied by 10 before sending. Only negative currents are accepted.
+    if (maxdcbrakecurrent > 0) {
+        maxdcbrakecurrent = 0;
+    }
+    maxdcbrakecurrent = maxdcbrakecurrent * 10;
+    SetMaxDCBrakeCurrent[0] = maxdcbrakecurrent >> 8;
+    SetMaxDCBrakeCurrent[1] = maxdcbrakecurrent;
+    Send_CAN(SetMaxDCBrakeCurrent_ID, SetMaxDCBrakeCurrent, 2);
+}
+
+void setDriveEnable(bool driveenable) {
+    DriveEnable[0] = driveenable;
+    Send_CAN(DriveEnable_ID, DriveEnable, 1);
 }
