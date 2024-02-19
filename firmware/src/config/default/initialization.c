@@ -195,6 +195,10 @@ void SYS_Initialize ( void* data )
 
     CAN1_Initialize();
 
+    TMR2_Initialize();
+
+    TMR1_Initialize();
+
 
 
     /* MISRAC 2012 deviation block start */
@@ -208,6 +212,8 @@ void SYS_Initialize ( void* data )
     /* MISRAC 2012 deviation block end */
     EVIC_Initialize();
 
+	/* Enable global interrupts */
+    (void)__builtin_enable_interrupts();
 
 
 

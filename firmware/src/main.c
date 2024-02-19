@@ -22,47 +22,18 @@
 // *****************************************************************************
 // *****************************************************************************
 
+#include "main.h"
+
 #include <stdbool.h>  // Defines true
 #include <stddef.h>   // Defines NULL
 #include <stdlib.h>   // Defines EXIT_FAILURE
 
 #include "definitions.h"  // SYS function prototypes
-
 // *****************************************************************************
 // *****************************************************************************
 // Section: Main Entry Point
 // *****************************************************************************
 // *****************************************************************************
-
-// Inverter CAN IDs
-#define SetCurrent_ID 0x01 //byte 0-1  
-#define SetBrakeCurrent_ID 0x02 //byte 0-1
-#define SetERPM_ID 0x03 //byte 0-3
-#define SetPosition_ID 0x04 //byte 0-1
-#define SetRelativeCurrent_ID 0x05 //byte 0-1
-#define SetRelativeBrakeCurrent_ID 0x06 //byte 0-1
-#define SetDigitalOutput_ID 0x07    //byte 0-3
-#define SetMaxACCurrent_ID 0x08 //byte 0-1
-#define SetMaxACBrakeCurrent_ID 0x09 //byte 0-1
-#define SetMaxDCCurrent_ID 0x0A //byte 0-1
-#define SetMaxDCBrakeCurrent_ID 0x0B //byte 0-1
-#define DriveEnable_ID 0x0C //byte 0
-
-//mensagens inverter
-int8_t SetCurrent[2] = {0, 0};
-int8_t SetBrakeCurrent[2] = {0, 0};
-int8_t SetERPM[4] = {0, 0, 0, 0};
-int8_t SetPosition[2] = {0, 0};
-int8_t SetRelativeCurrent[2] = {0, 0};
-int8_t SetRelativeBrakeCurrent[2] = {0, 0};
-int8_t SetDigitalOutput[4] = {0, 0, 0, 0};
-int8_t SetMaxACCurrent[2] = {0, 0};
-int8_t SetMaxACBrakeCurrent[2] = {0, 0};
-int8_t SetMaxDCCurrent[2] = {0, 0};
-int8_t SetMaxDCBrakeCurrent[2] = {0, 0};
-int8_t DriveEnable[1] = {0};
-
-
 
 // Define a macro DEBUG para ativar ou desativar o debug_printf
 #define DEBUG 1
@@ -82,23 +53,20 @@ int8_t DriveEnable[1] = {0};
 #endif
 
 // ############# RX CAN FRAME ###############################
-static uint8_t rx_message[64] = {};
 
-uint32_t messageID = 0;
-uint32_t rx_messageID = 0;
-uint32_t status = 0;
-uint8_t messageLength = 0;
-uint8_t rx_messageLength = 0;
-uint8_t count = 0;
-uint8_t user_input = 0;
-CANFD_MSG_RX_ATTRIBUTE msgAttr = CANFD_MSG_RX_DATA_FRAME;
+CANFD_MSG_RX_ATTRIBUTE msgAttr = CANFD_MSG_RX_DATA_FRAME;  // RX message attribute
+
+static uint8_t rx_message[64] = {};  // CAN message receive buffer
+uint32_t rx_messageID = 0;           // RX message ID
+uint32_t status = 0;                 // CAN status
+uint8_t rx_messageLength = 0;        // RX message length
 
 bool CANRX_ON = 0;  // flag to check if CAN is receiving
 bool CANTX_ON = 0;  // flag to check if CAN is transmitting
 
 // ############# TX CAN FRAME ###############################
-static uint8_t message_CAN_TX[64];
-uint8_t cantx_message[8] = {10, 20, 30, 40, 50, 60, 70, 80};
+uint8_t message_CAN_TX[8] = {};  // TX message buffer
+uint8_t cantx_message[8] = {};    // TX message buffer
 
 // ############# ADC ########################################
 
@@ -109,20 +77,7 @@ uint16_t APPS_percent = 0;       // 0-100% of average of APPS1 and APPS2
 bool apps_error = 0;             // error if APPS1 and APPS2 are 10% apart
 bool error_flag = 0;             //  used in apps function to check if there is an error
 
-uint8_t Brake_Pressure = 0;      // 0-50
-uint32_t Target_Power = 0;       // 0-85000
-uint32_t Current_Power = 0;      // 0-85000
-uint16_t Inverter_Voltage = 0;   // 0-620
-uint16_t Inverter_Temperature = 0; // 0-300
- 
-bool error_flag = 0;             // used in apps function to check if there is an error
-uint8_t cantx_message[8] = {10, 20, 30, 40, 50, 60, 70, 80};
-
-void Read_ADC(ADCHS_CHANNEL_NUM channel); 
-void Read_CAN(void);
-bool APPS_Function(uint16_t APPS1, uint16_t APPS2);
-void Send_CAN(uint32_t id, uint8_t* message, uint8_t size);
-
+// ############# MILIS #######################################
 unsigned int previousMillis[10] = {};
 unsigned int currentMillis[10] = {};
 
@@ -130,12 +85,38 @@ unsigned int millis(void) {
     return (unsigned int)(CORETIMER_CounterGet() / (CORE_TIMER_FREQUENCY / 1000));
 }
 
+// ############# FUNCTIONS ##################################
+void Read_ADC(ADCHS_CHANNEL_NUM channel);                    // Read ADC function
+void Read_CAN(void);                                         // Read CAN function
+bool APPS_Function(uint16_t APPS1, uint16_t APPS2);          // APPS function to calculate average and percentage
+void Send_CAN(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN function
+
+// ############# TMR FUNCTIONS ###############################
+TMR1_5ms(void) {  //200Hz
+    memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
+    SendID_20();
+    memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
+    SendID_23();
+}
+
+TMR2_100ms(void) {  //10Hz
+    memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
+    SendID_21();
+    memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
+    SendID_22();
+}
+
 int main(void) {
     /* Initialize all modules */
     SYS_Initialize(NULL);
 
-    ADCHS_ModulesEnable(ADCHS_MODULE0_MASK); //APPS1
-    ADCHS_ModulesEnable(ADCHS_MODULE3_MASK); //APPS2
+    ADCHS_ModulesEnable(ADCHS_MODULE0_MASK);  // APPS1
+    ADCHS_ModulesEnable(ADCHS_MODULE3_MASK);  // APPS2
+
+    TMR1_CallbackRegister(TMR1_5ms, (uintptr_t)NULL);  // 200Hz
+    TMR1_Start();
+    TMR2_CallbackRegister(TMR2_100ms, (uintptr_t)NULL);  // 10Hz
+    TMR2_Start();
 
     printf("██████╗░███████╗░██████╗███████╗████████╗\r\n");
     printf("██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝\r\n");
@@ -146,6 +127,7 @@ int main(void) {
     printf("\n\n");
     fflush(stdout);
 
+    // Start up sequence
     GPIO_RC11_Set();
     CORETIMER_DelayMs(75);
     GPIO_RC2_Set();
@@ -166,7 +148,7 @@ int main(void) {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks();
 
-        Read_CAN();
+        Read_CAN();  // Read CAN
 
         // Heartbeat led blink---------------------------------------
         currentMillis[0] = millis();
@@ -186,27 +168,12 @@ int main(void) {
         }
         // Send CAN---------------------------------------
 
-        memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
         memset(cantx_message, 0x00, sizeof(cantx_message));
         memset(message_ADC, 0x00, sizeof(message_ADC));
 
         currentMillis[2] = millis();
         if (currentMillis[2] - previousMillis[2] >= 5) {
-            message_CAN_TX[0] = APPS_percent; // APPS_percent 0-100%
-            message_CAN_TX[1] = Brake_Pressure; // Brake_Pressure 0-50
-            //Target_Power byte 2,3 and 4
-            message_CAN_TX[2] = (Target_Power >> 16) & 0xFF;
-            message_CAN_TX[3] = (Target_Power >> 8) & 0xFF;
-            message_CAN_TX[4] = Target_Power & 0xFF;
-            //Current_Power byte 5,6 and 7
-            message_CAN_TX[5] = (Current_Power >> 16) & 0xFF;
-            message_CAN_TX[6] = (Current_Power >> 8) & 0xFF;
-            message_CAN_TX[7] = Current_Power & 0xFF;
-            Send_CAN(0x20, message_CAN_TX, 8);
-
-
-            Send_CAN(0x21, cantx_message, 8);
-            Send_CAN(0x22, cantx_message, 8);
+            SendID_20();
 
             Send_CAN(0x420, cantx_message, 8);
 
@@ -235,7 +202,7 @@ int main(void) {
 
 /*******************************************************************************
  End of File
-*/
+ */
 
 void Read_ADC(ADCHS_CHANNEL_NUM channel) {
     ADCHS_ChannelConversionStart(channel);
@@ -263,7 +230,7 @@ void Read_CAN() {
                 printf("%d ", rx_message[rx_messageLength - length--]);
             }
             printf("\r\n");
-            */
+             */
             CANRX_ON = 1;
             GPIO_RC2_Toggle();
         }
@@ -337,19 +304,18 @@ bool APPS_Function(uint16_t APPS1, uint16_t APPS2) {
     return error_flag;
 }
 
-
 void setSetCurrent(int16_t current) {
     current = current * 10;
     SetCurrent[0] = current >> 8;
     SetCurrent[1] = current;
-    Send_CAN(SetCurrent_ID, SetCurrent, 2);
+    Send_CAN(SetCurrent_ID, (uint8_t*)SetCurrent, 2);
 }
 
 void setSetBrakeCurrent(int16_t brakeCurrent) {
     brakeCurrent = brakeCurrent * 10;
     SetBrakeCurrent[0] = brakeCurrent >> 8;
     SetBrakeCurrent[1] = brakeCurrent;
-    Send_CAN(SetBrakeCurrent_ID, SetBrakeCurrent, 2);
+    Send_CAN(SetBrakeCurrent_ID, (uint8_t*)SetBrakeCurrent, 2);
 }
 
 void setSetERPM(int32_t ERPM) {
@@ -357,18 +323,18 @@ void setSetERPM(int32_t ERPM) {
     SetERPM[1] = ERPM >> 16;
     SetERPM[2] = ERPM >> 8;
     SetERPM[3] = ERPM;
-    Send_CAN(SetERPM_ID, SetERPM, 4);
+    Send_CAN(SetERPM_ID, (uint8_t*)SetERPM, 4);
 }
 
 void setSetPosition(int16_t position) {
     position = position * 10;
     SetPosition[0] = position >> 8;
     SetPosition[1] = position;
-    Send_CAN(SetPosition_ID, SetPosition, 2);
+    Send_CAN(SetPosition_ID, (uint8_t*)SetPosition, 2);
 }
 
 void setSetRelativeCurrent(int16_t relativecurrent) {
-    //This value must be between -100 and 100 and must be multiplied by 10 before sending.
+    // This value must be between -100 and 100 and must be multiplied by 10 before sending.
     if (relativecurrent > 100) {
         relativecurrent = 100;
     } else if (relativecurrent < -100) {
@@ -377,11 +343,11 @@ void setSetRelativeCurrent(int16_t relativecurrent) {
     relativecurrent = relativecurrent * 10;
     SetRelativeCurrent[0] = relativecurrent >> 8;
     SetRelativeCurrent[1] = relativecurrent;
-    Send_CAN(SetRelativeCurrent_ID, SetRelativeCurrent, 2);
+    Send_CAN(SetRelativeCurrent_ID, (uint8_t*)SetRelativeCurrent, 2);
 }
 
 void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
-    //This value must be between 0 and 100 and must be multiplied by 10 before sending 
+    // This value must be between 0 and 100 and must be multiplied by 10 before sending
     if (relativebrakecurrent > 100) {
         relativebrakecurrent = 100;
     } else if (relativebrakecurrent < 0) {
@@ -390,7 +356,7 @@ void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
     relativebrakecurrent = relativebrakecurrent * 10;
     SetRelativeBrakeCurrent[0] = relativebrakecurrent >> 8;
     SetRelativeBrakeCurrent[1] = relativebrakecurrent;
-    Send_CAN(SetRelativeBrakeCurrent_ID, SetRelativeBrakeCurrent, 2);
+    Send_CAN(SetRelativeBrakeCurrent_ID, (uint8_t*)SetRelativeBrakeCurrent, 2);
 }
 
 void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitaloutput3, bool digitaloutput4) {
@@ -398,46 +364,103 @@ void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitalo
     SetDigitalOutput[1] = digitaloutput2;
     SetDigitalOutput[2] = digitaloutput3;
     SetDigitalOutput[3] = digitaloutput4;
-    Send_CAN(SetDigitalOutput_ID, SetDigitalOutput, 4);
+    Send_CAN(SetDigitalOutput_ID, (uint8_t*)SetDigitalOutput, 4);
 }
 
 void setSetMaxACCurrent(int16_t maxcurrent) {
     maxcurrent = maxcurrent * 10;
     SetMaxACCurrent[0] = maxcurrent >> 8;
     SetMaxACCurrent[1] = maxcurrent;
-    Send_CAN(SetMaxACCurrent_ID, SetMaxACCurrent, 2);
+    Send_CAN(SetMaxACCurrent_ID, (uint8_t*)SetMaxACCurrent, 2);
 }
 
 void setSetMaxACBrakeCurrent(int16_t maxbrakecurrent) {
-    //This value must be multiplied by 10 before sending, only negative currents are accepted.
+    // This value must be multiplied by 10 before sending, only negative currents are accepted.
     if (maxbrakecurrent > 0) {
         maxbrakecurrent = 0;
     }
     maxbrakecurrent = maxbrakecurrent * 10;
     SetMaxACBrakeCurrent[0] = maxbrakecurrent >> 8;
     SetMaxACBrakeCurrent[1] = maxbrakecurrent;
-    Send_CAN(SetMaxACBrakeCurrent_ID, SetMaxACBrakeCurrent, 2);
+    Send_CAN(SetMaxACBrakeCurrent_ID, (uint8_t*)SetMaxACBrakeCurrent, 2);
 }
 
 void setSetMaxDCCurrent(int16_t maxdccurrent) {
     maxdccurrent = maxdccurrent * 10;
     SetMaxDCCurrent[0] = maxdccurrent >> 8;
     SetMaxDCCurrent[1] = maxdccurrent;
-    Send_CAN(SetMaxDCCurrent_ID, SetMaxDCCurrent, 2);
+    Send_CAN(SetMaxDCCurrent_ID, (uint8_t*)SetMaxDCCurrent, 2);
 }
 
 void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
-    //The value has to be multiplied by 10 before sending. Only negative currents are accepted.
+    // The value has to be multiplied by 10 before sending. Only negative currents are accepted.
     if (maxdcbrakecurrent > 0) {
         maxdcbrakecurrent = 0;
     }
     maxdcbrakecurrent = maxdcbrakecurrent * 10;
     SetMaxDCBrakeCurrent[0] = maxdcbrakecurrent >> 8;
     SetMaxDCBrakeCurrent[1] = maxdcbrakecurrent;
-    Send_CAN(SetMaxDCBrakeCurrent_ID, SetMaxDCBrakeCurrent, 2);
+    Send_CAN(SetMaxDCBrakeCurrent_ID, (uint8_t*)SetMaxDCBrakeCurrent, 2);
 }
 
 void setDriveEnable(bool driveenable) {
     DriveEnable[0] = driveenable;
-    Send_CAN(DriveEnable_ID, DriveEnable, 1);
+    Send_CAN(DriveEnable_ID, (uint8_t*)DriveEnable, 1);
+}
+
+void SendID_20(void) {
+    static uint8_t id = 0x20;
+    message_CAN_TX[0] = APPS_percent;    // APPS_percent 0-100%
+    message_CAN_TX[1] = Brake_Pressure;  // Brake_Pressure 0-50
+    // Target_Power byte 2,3 and 4
+    message_CAN_TX[2] = (Target_Power >> 16) & 0xFF;
+    message_CAN_TX[3] = (Target_Power >> 8) & 0xFF;
+    message_CAN_TX[4] = Target_Power & 0xFF;
+    // Current_Power byte 5,6 and 7
+    message_CAN_TX[5] = (Current_Power >> 16) & 0xFF;
+    message_CAN_TX[6] = (Current_Power >> 8) & 0xFF;
+    message_CAN_TX[7] = Current_Power & 0xFF;
+
+    Send_CAN(id, message_CAN_TX, 8);
+}
+
+void SendID_21(void) {
+    static uint8_t id = 0x21;
+    message_CAN_TX[0] = Inverter_Temperature >> 8;
+    message_CAN_TX[1] = Inverter_Temperature;
+    message_CAN_TX[2] = Motor_Temperature >> 8;
+    message_CAN_TX[3] = Motor_Temperature;
+    message_CAN_TX[4] = 0;
+    message_CAN_TX[5] = 0;
+    message_CAN_TX[6] = 0;
+    message_CAN_TX[7] = 0;
+
+    Send_CAN(id, message_CAN_TX, 8);
+}
+
+void SendID_22(void) {
+    static uint8_t id = 0x22;
+    message_CAN_TX[0] = Inverter_Faults >> 8;
+    message_CAN_TX[1] = Inverter_Faults;
+    message_CAN_TX[2] = LMT1;
+    message_CAN_TX[3] = LMT2;
+    message_CAN_TX[4] = VcuState;
+    message_CAN_TX[5] = 0;
+    message_CAN_TX[6] = 0;
+    message_CAN_TX[7] = 0;
+
+    Send_CAN(id, message_CAN_TX, 8);
+}
+
+void SendID_23(void) {
+    static uint8_t id = 0x23;
+    message_CAN_TX[0] = Inverter_Voltage >> 8;
+    message_CAN_TX[1] = Inverter_Voltage;
+    message_CAN_TX[2] = RPM >> 8;
+    message_CAN_TX[3] = RPM;
+    message_CAN_TX[4] = 0;
+    message_CAN_TX[5] = 0;
+    message_CAN_TX[6] = 0;
+    message_CAN_TX[7] = 0;
+    Send_CAN(id, message_CAN_TX, 8);
 }

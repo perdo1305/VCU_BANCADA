@@ -66,6 +66,8 @@
 // Section: System Interrupt Vector declarations
 // *****************************************************************************
 // *****************************************************************************
+void TIMER_1_Handler (void);
+void TIMER_2_Handler (void);
 
 
 // *****************************************************************************
@@ -73,6 +75,16 @@
 // Section: System Interrupt Vector definitions
 // *****************************************************************************
 // *****************************************************************************
+void __ISR(_TIMER_1_VECTOR, ipl1SRS) TIMER_1_Handler (void)
+{
+    TIMER_1_InterruptHandler();
+}
+
+void __ISR(_TIMER_2_VECTOR, ipl1SRS) TIMER_2_Handler (void)
+{
+    TIMER_2_InterruptHandler();
+}
+
 
 
 
