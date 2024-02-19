@@ -68,6 +68,11 @@
 // *****************************************************************************
 void TIMER_1_Handler (void);
 void TIMER_2_Handler (void);
+void TIMER_3_Handler (void);
+void TIMER_4_Handler (void);
+void TIMER_5_Handler (void);
+void ADC_DATA0_Handler (void);
+void ADC_DATA3_Handler (void);
 
 
 // *****************************************************************************
@@ -83,6 +88,31 @@ void __ISR(_TIMER_1_VECTOR, ipl1SRS) TIMER_1_Handler (void)
 void __ISR(_TIMER_2_VECTOR, ipl1SRS) TIMER_2_Handler (void)
 {
     TIMER_2_InterruptHandler();
+}
+
+void __ISR(_TIMER_3_VECTOR, ipl1SRS) TIMER_3_Handler (void)
+{
+    TIMER_3_InterruptHandler();
+}
+
+void __ISR(_TIMER_4_VECTOR, ipl1SRS) TIMER_4_Handler (void)
+{
+    TIMER_4_InterruptHandler();
+}
+
+void __ISR(_TIMER_5_VECTOR, ipl1SRS) TIMER_5_Handler (void)
+{
+    TIMER_5_InterruptHandler();
+}
+
+void __ISR(_ADC_DATA0_VECTOR, ipl1SRS) ADC_DATA0_Handler (void)
+{
+    ADC_DATA0_InterruptHandler();
+}
+
+void __ISR(_ADC_DATA3_VECTOR, ipl1SRS) ADC_DATA3_Handler (void)
+{
+    ADC_DATA3_InterruptHandler();
 }
 
 

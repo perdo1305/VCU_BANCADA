@@ -59,6 +59,11 @@
 
 void TIMER_1_InterruptHandler( void );
 void TIMER_2_InterruptHandler( void );
+void TIMER_3_InterruptHandler( void );
+void TIMER_4_InterruptHandler( void );
+void TIMER_5_InterruptHandler( void );
+void ADC_DATA0_InterruptHandler( void );
+void ADC_DATA3_InterruptHandler( void );
 
 
 

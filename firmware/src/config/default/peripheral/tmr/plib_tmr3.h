@@ -1,23 +1,23 @@
 /*******************************************************************************
-  ADCHS Peripheral Library Interface Header File
+  Data Type definition of Timer PLIB
 
-  Company
+  Company:
     Microchip Technology Inc.
 
-  File Name
-    plib_adchs.h
+  File Name:
+    plib_tmr3.h
 
-  Summary
-    ADCHS peripheral library interface.
+  Summary:
+    Data Type definition of the Timer Peripheral Interface Plib.
 
-  Description
-    This file defines the interface to the ADCHS peripheral library.  This
-    library provides access to and control of the associated peripheral
-    instance.
+  Description:
+    This file defines the Data Types for the Timer Plib.
+
+  Remarks:
+    None.
 
 *******************************************************************************/
 
-// DOM-IGNORE-BEGIN
 /*******************************************************************************
 * Copyright (C) 2019 Microchip Technology Inc. and its subsidiaries.
 *
@@ -40,30 +40,22 @@
 * ANY WAY RELATED TO THIS SOFTWARE WILL NOT EXCEED THE AMOUNT OF FEES, IF ANY,
 * THAT YOU HAVE PAID DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
 *******************************************************************************/
-// DOM-IGNORE-END
 
-#ifndef PLIB_ADCHS_H    // Guards against multiple inclusion
-#define PLIB_ADCHS_H
+#ifndef PLIB_TMR3_H
+#define PLIB_TMR3_H
 
-
-// *****************************************************************************
-// *****************************************************************************
-// Section: Included Files
-// *****************************************************************************
-// *****************************************************************************
-
-/*  This section lists the other files that are included in this file.
-*/
-
-#include "plib_adchs_common.h"
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "device.h"
+#include "plib_tmr_common.h"
 
 // DOM-IGNORE-BEGIN
 #ifdef __cplusplus  // Provide C++ Compatibility
 
-extern "C" {
+    extern "C" {
 
 #endif
-
 // DOM-IGNORE-END
 
 // *****************************************************************************
@@ -71,55 +63,40 @@ extern "C" {
 // Section: Data Types
 // *****************************************************************************
 // *****************************************************************************
-/*  The following data type definitions are used by the functions in this
-    interface and should be considered part it.
-*/
-
 
 // *****************************************************************************
 // *****************************************************************************
 // Section: Interface Routines
 // *****************************************************************************
 // *****************************************************************************
-/* The following functions make up the methods (set of possible operations) of
-   this interface.
-*/
-
-void ADCHS_Initialize (void);
-
-void ADCHS_ModulesEnable (ADCHS_MODULE_MASK moduleMask);
-void ADCHS_ModulesDisable (ADCHS_MODULE_MASK moduleMask);
-
-void ADCHS_GlobalEdgeConversionStart(void);
-void ADCHS_GlobalLevelConversionStart(void);
-void ADCHS_GlobalLevelConversionStop(void);
-void ADCHS_ChannelConversionStart(ADCHS_CHANNEL_NUM channel);
-
-void ADCHS_ChannelResultInterruptEnable (ADCHS_CHANNEL_NUM channel);
-void ADCHS_ChannelResultInterruptDisable (ADCHS_CHANNEL_NUM channel);
-void ADCHS_ChannelEarlyInterruptEnable (ADCHS_CHANNEL_NUM channel);
-void ADCHS_ChannelEarlyInterruptDisable (ADCHS_CHANNEL_NUM channel);
-
-bool ADCHS_ChannelResultIsReady(ADCHS_CHANNEL_NUM channel);
-uint16_t ADCHS_ChannelResultGet(ADCHS_CHANNEL_NUM channel);
-
-
-void ADCHS_CallbackRegister(ADCHS_CHANNEL_NUM channel, ADCHS_CALLBACK callback, uintptr_t context);
-
-bool ADCHS_EOSStatusGet(void);
-
 
 // *****************************************************************************
+void TMR3_Initialize(void);
+
+void TMR3_Start(void);
+
+void TMR3_Stop(void);
+
+void TMR3_PeriodSet(uint16_t period);
+
+uint16_t TMR3_PeriodGet(void);
+
+uint16_t TMR3_CounterGet(void);
+
+uint32_t TMR3_FrequencyGet(void);
+
+void TMR3_InterruptEnable(void);
+
+void TMR3_InterruptDisable(void);
+
+void TMR3_CallbackRegister( TMR_CALLBACK callback_fn, uintptr_t context );
+
 
 // DOM-IGNORE-BEGIN
 #ifdef __cplusplus  // Provide C++ Compatibility
 
-}
+    }
 #endif
 // DOM-IGNORE-END
 
-#endif //PLIB_ADCHS_H
-
-/**
- End of File
-*/
+#endif /* PLIB_TMR3_H */
