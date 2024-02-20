@@ -119,7 +119,7 @@ void TMR5_100ms(uint32_t status, uintptr_t context) {
 }
 void TMR6_5ms(uint32_t status, uintptr_t context) {
     setSetERPM(APPS_percent);  // Send APPS_percent to inverter
-    setDriveEnable(1);
+   //setDriveEnable(1);
 }
 
 // ############# ADC CALLBACKS ###############################
