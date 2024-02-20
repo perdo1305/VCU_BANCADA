@@ -93,6 +93,7 @@ void Read_CAN(void);                                         // Read CAN functio
 bool APPS_Function(uint16_t APPS1, uint16_t APPS2);          // APPS function to calculate average and percentage
 void Send_CAN(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN function
 void startupSequence(void);                                  // Startup sequence
+void PrintToConsole(uint8_t);                                   // Print data to console
 
 // ############# TMR FUNCTIONS ###############################
 void TMR1_5ms(uint32_t status, uintptr_t context) {  // 200Hz
@@ -115,6 +116,9 @@ void TMR4_500ms(uint32_t status, uintptr_t context) {  // 2Hz
 
 void TMR5_100ms(uint32_t status, uintptr_t context) {
     apps_error = APPS_Function(ADC[0], ADC[3]);  // checks if there is an error in the APPS and calculates the average and percentage
+}
+void TMR6_5ms(uint32_t status, uintptr_t context) {
+    setSetERPM(APPS_percent);  // Send APPS_percent to inverter
 }
 
 // ############# ADC CALLBACKS ###############################
@@ -144,6 +148,8 @@ int main(void) {
     TMR4_Start();
     TMR5_CallbackRegister(TMR5_100ms, (uintptr_t)NULL);  // 10Hz
     TMR5_Start();
+    TMR6_CallbackRegister(TMR6_5ms, (uintptr_t)NULL);  // 200Hz to send data to the inverter
+    TMR6_Start();
 
     printf("██████╗░███████╗░██████╗███████╗████████╗\r\n");
     printf("██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝\r\n");
@@ -154,22 +160,18 @@ int main(void) {
     printf("\n\n");
     fflush(stdout);
 
-    startupSequence();
+    startupSequence();  // led sequence
+
+    setDriveEnable(1);  // Enable the inverter
 
     while (true) {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks();
-        Read_CAN();  // Read CAN
+        Read_CAN();
+        PrintToConsole(200);
 
-        // Print data-----
-        currentMillis[3] = millis();
-        if (currentMillis[3] - previousMillis[3] >= 100) {
-            printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
-            previousMillis[3] = currentMillis[3];
-        }
     }
     /* Execution should not come here during normal operation */
-
     return (EXIT_FAILURE);
 }
 
@@ -519,4 +521,13 @@ void startupSequence() {
     GPIO_RC11_Clear();
     CORETIMER_DelayMs(75);
     GPIO_RC2_Clear();
+}
+
+void PrintToConsole(uint8_t ms) {
+    // Print data-----
+    currentMillis[3] = millis();
+    if (currentMillis[3] - previousMillis[3] >= ms) {
+        printf("APPS1:%d,APPS2:%d,APPS_percent:%d,APPS_error:,%d,CAN_status:%d,CanRX_ON:%d,CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
+        previousMillis[3] = currentMillis[3];
+    }
 }

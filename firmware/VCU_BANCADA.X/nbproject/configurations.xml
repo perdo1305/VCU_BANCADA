@@ -33,6 +33,7 @@
               <itemPath>../src/config/default/peripheral/tmr/plib_tmr3.h</itemPath>
               <itemPath>../src/config/default/peripheral/tmr/plib_tmr4.h</itemPath>
               <itemPath>../src/config/default/peripheral/tmr/plib_tmr5.h</itemPath>
+              <itemPath>../src/config/default/peripheral/tmr/plib_tmr6.h</itemPath>
             </logicalFolder>
             <logicalFolder name="tmr1" displayName="tmr1" projectFiles="true">
               <itemPath>../src/config/default/peripheral/tmr1/plib_tmr1_common.h</itemPath>
@@ -88,6 +89,7 @@
               <itemPath>../src/config/default/peripheral/tmr/plib_tmr3.c</itemPath>
               <itemPath>../src/config/default/peripheral/tmr/plib_tmr4.c</itemPath>
               <itemPath>../src/config/default/peripheral/tmr/plib_tmr5.c</itemPath>
+              <itemPath>../src/config/default/peripheral/tmr/plib_tmr6.c</itemPath>
             </logicalFolder>
             <logicalFolder name="tmr1" displayName="tmr1" projectFiles="true">
               <itemPath>../src/config/default/peripheral/tmr1/plib_tmr1.c</itemPath>

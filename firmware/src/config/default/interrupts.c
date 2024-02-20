@@ -71,6 +71,7 @@ void TIMER_2_Handler (void);
 void TIMER_3_Handler (void);
 void TIMER_4_Handler (void);
 void TIMER_5_Handler (void);
+void TIMER_6_Handler (void);
 void ADC_DATA0_Handler (void);
 void ADC_DATA3_Handler (void);
 
@@ -103,6 +104,11 @@ void __ISR(_TIMER_4_VECTOR, ipl1SRS) TIMER_4_Handler (void)
 void __ISR(_TIMER_5_VECTOR, ipl1SRS) TIMER_5_Handler (void)
 {
     TIMER_5_InterruptHandler();
+}
+
+void __ISR(_TIMER_6_VECTOR, ipl1SRS) TIMER_6_Handler (void)
+{
+    TIMER_6_InterruptHandler();
 }
 
 void __ISR(_ADC_DATA0_VECTOR, ipl1SRS) ADC_DATA0_Handler (void)
