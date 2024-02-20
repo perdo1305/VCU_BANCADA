@@ -36,7 +36,7 @@
 // *****************************************************************************
 
 // Define a macro DEBUG para ativar ou desativar o debug_printf
-#define DEBUG 1
+#define DEBUG 0
 #define LABVIEW 0
 #define INVERTED_APPS 1
 
@@ -167,17 +167,20 @@ int main(void) {
     while (true) {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks();
-        Read_CAN();
-        PrintToConsole(200);
+        Read_CAN();  // Read CAN
 
+        // Print data-----
+        currentMillis[3] = millis();
+        if (currentMillis[3] - previousMillis[3] >= 100) {
+            printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
+            previousMillis[3] = currentMillis[3];
+        }
     }
     /* Execution should not come here during normal operation */
     return (EXIT_FAILURE);
 }
 
-/*******************************************************************************
- End of File
- */
+
 
 void Read_ADC(ADCHS_CHANNEL_NUM channel) {
     ADCHS_ChannelConversionStart(channel);
@@ -236,6 +239,24 @@ void Send_CAN(uint32_t id, uint8_t* message, uint8_t size) {
     }
 }
 
+/**
+ * This function checks the validity of the Accelerator Pedal Position Sensor (APPS) readings and calculates their average.
+ * 
+ * @param APPS1 The first APPS reading, ranges from 0 to 4095.
+ * @param APPS2 The second APPS reading, ranges from 4095 to 0 (inverted).
+ * 
+ * @return Returns a boolean indicating if there is an error in the APPS readings. 
+ *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range), 
+ *         and the error persists for more than 100ms. Otherwise, returns false.
+ * 
+ * The function first checks if the APPS readings are inverted. If they are, it inverts APPS2.
+ * Then it calculates the absolute difference between APPS1 and APPS2.
+ * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995, 
+ * it considers it as an error.
+ * If an error is detected, it sets a flag and starts a timer. If the error persists for more than 100ms, it sets the error flag.
+ * If no error is detected, it resets the error flag and the timer.
+ * Finally, it calculates the average of APPS1 and APPS2, and converts it to a percentage of the maximum possible value (4095).
+ */
 bool APPS_Function(uint16_t APPS1, uint16_t APPS2) {
     /* range :   APPS1 0-4095
                  APPS2 4095-0
@@ -521,13 +542,4 @@ void startupSequence() {
     GPIO_RC11_Clear();
     CORETIMER_DelayMs(75);
     GPIO_RC2_Clear();
-}
-
-void PrintToConsole(uint8_t ms) {
-    // Print data-----
-    currentMillis[3] = millis();
-    if (currentMillis[3] - previousMillis[3] >= ms) {
-        printf("APPS1:%d,APPS2:%d,APPS_percent:%d,APPS_error:,%d,CAN_status:%d,CanRX_ON:%d,CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
-        previousMillis[3] = currentMillis[3];
-    }
 }
