@@ -169,12 +169,8 @@ int main(void) {
         SYS_Tasks();
         Read_CAN();  // Read CAN
 
-        // Print data-----
-        currentMillis[3] = millis();
-        if (currentMillis[3] - previousMillis[3] >= 100) {
-            printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
-            previousMillis[3] = currentMillis[3];
-        }
+        PrintToConsole(200);  // Print data to console time in ms
+        
     }
     /* Execution should not come here during normal operation */
     return (EXIT_FAILURE);
@@ -543,3 +539,13 @@ void startupSequence() {
     CORETIMER_DelayMs(75);
     GPIO_RC2_Clear();
 }
+
+ void PrintToConsole(uint8_t time) {
+    // Print data-----
+        currentMillis[3] = millis();
+        if (currentMillis[3] - previousMillis[3] >= time) {
+            printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
+            previousMillis[3] = currentMillis[3];
+        }
+ }
+   
