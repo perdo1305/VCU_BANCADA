@@ -93,7 +93,7 @@ void Read_CAN(void);                                         // Read CAN functio
 bool APPS_Function(uint16_t APPS1, uint16_t APPS2);          // APPS function to calculate average and percentage
 void Send_CAN(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN function
 void startupSequence(void);                                  // Startup sequence
-void PrintToConsole(uint8_t);                                   // Print data to console
+void PrintToConsole(uint8_t);                                // Print data to console
 
 // ############# TMR FUNCTIONS ###############################
 void TMR1_5ms(uint32_t status, uintptr_t context) {  // 200Hz
@@ -119,6 +119,7 @@ void TMR5_100ms(uint32_t status, uintptr_t context) {
 }
 void TMR6_5ms(uint32_t status, uintptr_t context) {
     setSetERPM(APPS_percent);  // Send APPS_percent to inverter
+    setDriveEnable(1);
 }
 
 // ############# ADC CALLBACKS ###############################
@@ -162,6 +163,18 @@ int main(void) {
 
     startupSequence();  // led sequence
 
+    // config inverter
+    setSetCurrent(0);
+    setSetBrakeCurrent(0);
+    setSetERPM(0);
+    setSetPosition(0);
+    setSetRelativeCurrent(0);
+    setSetRelativeBrakeCurrent(0);
+    setSetDigitalOutput(0, 0, 0, 0);
+    setSetMaxACCurrent(0);
+    setSetMaxACBrakeCurrent(0);
+    setSetMaxDCCurrent(0);
+    setSetMaxDCBrakeCurrent(0);
     setDriveEnable(1);  // Enable the inverter
 
     while (true) {
@@ -170,13 +183,10 @@ int main(void) {
         Read_CAN();  // Read CAN
 
         PrintToConsole(200);  // Print data to console time in ms
-        
     }
     /* Execution should not come here during normal operation */
     return (EXIT_FAILURE);
 }
-
-
 
 void Read_ADC(ADCHS_CHANNEL_NUM channel) {
     ADCHS_ChannelConversionStart(channel);
@@ -237,17 +247,17 @@ void Send_CAN(uint32_t id, uint8_t* message, uint8_t size) {
 
 /**
  * This function checks the validity of the Accelerator Pedal Position Sensor (APPS) readings and calculates their average.
- * 
+ *
  * @param APPS1 The first APPS reading, ranges from 0 to 4095.
  * @param APPS2 The second APPS reading, ranges from 4095 to 0 (inverted).
- * 
- * @return Returns a boolean indicating if there is an error in the APPS readings. 
- *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range), 
+ *
+ * @return Returns a boolean indicating if there is an error in the APPS readings.
+ *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range),
  *         and the error persists for more than 100ms. Otherwise, returns false.
- * 
+ *
  * The function first checks if the APPS readings are inverted. If they are, it inverts APPS2.
  * Then it calculates the absolute difference between APPS1 and APPS2.
- * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995, 
+ * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995,
  * it considers it as an error.
  * If an error is detected, it sets a flag and starts a timer. If the error persists for more than 100ms, it sets the error flag.
  * If no error is detected, it resets the error flag and the timer.
@@ -293,8 +303,14 @@ bool APPS_Function(uint16_t APPS1, uint16_t APPS2) {
     return error_flag;
 }
 /**
- * Sets the current value and sends it over CAN bus.
- * The current value is multiplied by 10 before sending.
+ * This command sets the target motor AC current (peak, not
+ * RMS). When the controller receives this message, it
+ * automatically switches to current control mode.
+ * This value must not be above the limits of the inverter and must
+ * be multiplied by 10 before sending. This is a signed parameter,
+ * and the sign represents the direction of the torque which
+ * correlates with the motor AC current. (For the correlation, please
+ * refer to the motor parameters)
  * @param current The current value to set.
  */
 void setSetCurrent(int16_t current) {
@@ -304,8 +320,10 @@ void setSetCurrent(int16_t current) {
     Send_CAN(SetCurrent_ID, (uint8_t*)SetCurrent, 2);
 }
 /**
- * Sets the brake current value and sends it over CAN bus.
- * The brake current value is multiplied by 10 before sending.
+ * Targets the brake current of the motor. It will result negative
+ * torque relatively to the forward direction of the motor.
+ * This value must be multiplied by 10 before sending, only
+ * positive currents are accepted.
  * @param brakeCurrent The brake current value to set.
  */
 void setSetBrakeCurrent(int16_t brakeCurrent) {
@@ -315,7 +333,11 @@ void setSetBrakeCurrent(int16_t brakeCurrent) {
     Send_CAN(SetBrakeCurrent_ID, (uint8_t*)SetBrakeCurrent, 2);
 }
 /**
- * Sets the ERPM value and sends it over CAN bus.
+ * This command enables the speed control of the motor with a
+ * target ERPM. This is a signed parameter, and the sign
+ * represents the direction of the spinning. For better operation you
+ * need to tune the PID of speed control.
+ * Equation: ERPM = Motor RPM * number of the motor pole pairs.
  * @param ERPM The ERPM value to set.
  */
 void setSetERPM(int32_t ERPM) {
@@ -327,8 +349,10 @@ void setSetERPM(int32_t ERPM) {
 }
 
 /**
- * Sets the position value and sends it over CAN bus.
- * The position value is multiplied by 10 before sending.
+ * This value targets the desired position of the motor in degrees.
+ * This command is used to hold a position of the motor.
+ * This feature is enabled only if encoder is used as position
+ * sensor. The value has to be multiplied by 10 before sending.
  * @param position The position value to set.
  */
 void setSetPosition(int16_t position) {
@@ -338,9 +362,13 @@ void setSetPosition(int16_t position) {
     Send_CAN(SetPosition_ID, (uint8_t*)SetPosition, 2);
 }
 /**
- * Sets the relative current value and sends it over CAN bus.
- * The relative current value is multiplied by 10 before sending.
- * The value must be between -100 and 100.
+ * This command sets a relative AC current to the minimum and
+ * maximum limits set by configuration. This achieves the same
+ * function as the “Set AC current” command. Gives you a freedom
+ * to send values between -100,0% and 100,0%. You do not need
+ * to know the motor limit parameters.
+ * This value must be between -100 and 100 and must be
+ * multiplied by 10 before sending.
  * @param relativecurrent The relative current value to set.
  */
 void setSetRelativeCurrent(int16_t relativecurrent) {
@@ -357,9 +385,14 @@ void setSetRelativeCurrent(int16_t relativecurrent) {
 }
 
 /**
- * Sets the relative brake current value and sends it over CAN bus.
- * The relative brake current value is multiplied by 10 before sending.
- * The value must be between 0 and 100.
+ * Targets the relative brake current of the motor. It will result
+ * negative torque relatively to the forward direction of the motor.
+ * This value must be between 0 and 100 and must be multiplied
+ * by 10 before sending Gives you a freedom to send values
+ * between 0% and 100,0%. You do not need to know the motor
+ * limit parameters.
+ * This value must be between 0 and 100 and has to be multiplied
+ * by 10 before sending
  * @param relativebrakecurrent The relative brake current value to set.
  */
 void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
@@ -389,8 +422,10 @@ void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitalo
     Send_CAN(SetDigitalOutput_ID, (uint8_t*)SetDigitalOutput, 4);
 }
 /**
- * Sets the maximum AC current value and sends it over CAN bus.
- * The maximum AC current value is multiplied by 10 before sending.
+ * This value determines the maximum allowable drive current on
+ * the AC side. With this function you are able maximize the
+ * maximum torque on the motor.
+ * The value must be multiplied by 10 before sending.
  * @param maxcurrent The maximum AC current value to set.
  */
 void setSetMaxACCurrent(int16_t maxcurrent) {
@@ -400,9 +435,9 @@ void setSetMaxACCurrent(int16_t maxcurrent) {
     Send_CAN(SetMaxACCurrent_ID, (uint8_t*)SetMaxACCurrent, 2);
 }
 /**
- * Sets the maximum AC brake current value and sends it over CAN bus.
- * The maximum AC brake current value is multiplied by 10 before sending.
- * Only negative currents are accepted.
+ * This value sets the maximum allowable brake current on the AC side.
+ * This value must be multiplied by 10 before sending, only
+ * negative currents are accepted.
  * @param maxbrakecurrent The maximum AC brake current value to set.
  */
 void setSetMaxACBrakeCurrent(int16_t maxbrakecurrent) {
@@ -416,8 +451,10 @@ void setSetMaxACBrakeCurrent(int16_t maxbrakecurrent) {
     Send_CAN(SetMaxACBrakeCurrent_ID, (uint8_t*)SetMaxACBrakeCurrent, 2);
 }
 /**
- * Sets the maximum DC current value and sends it over CAN bus.
- * The maximum DC current value is multiplied by 10 before sending.
+ * This value determines the maximum allowable drive current on
+ * the DC side. With this command the BMS can limit the
+ * maximum allowable battery discharge current.
+ * The value has to be multiplied by 10 before sending.
  * @param maxdccurrent The maximum DC current value to set.
  */
 void setSetMaxDCCurrent(int16_t maxdccurrent) {
@@ -427,9 +464,11 @@ void setSetMaxDCCurrent(int16_t maxdccurrent) {
     Send_CAN(SetMaxDCCurrent_ID, (uint8_t*)SetMaxDCCurrent, 2);
 }
 /**
- * Sets the maximum DC brake current value and sends it over CAN bus.
- * The maximum DC brake current value is multiplied by 10 before sending.
- * Only negative currents are accepted.
+ * This value determines the maximum allowable brake current
+ * on the DC side. With this command the BMS can limit the
+ * maximum allowable battery charge current.
+ * The value has to be multiplied by 10 before sending. Only
+ * negative currents are accepted.
  * @param maxdcbrakecurrent The maximum DC brake current value to set.
  */
 void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
@@ -443,7 +482,10 @@ void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
     Send_CAN(SetMaxDCBrakeCurrent_ID, (uint8_t*)SetMaxDCBrakeCurrent, 2);
 }
 /**
- * Sets the drive enable value and sends it over CAN bus.
+ * 0: Drive not allowed
+ * 1: Drive allowed
+ * Only 0 and 1 values are accepted. Must be sent periodically to
+ * be enabled. Refer to chapter 4.3
  * @param driveenable The drive enable value to set.
  */
 void setDriveEnable(bool driveenable) {
@@ -540,12 +582,11 @@ void startupSequence() {
     GPIO_RC2_Clear();
 }
 
- void PrintToConsole(uint8_t time) {
+void PrintToConsole(uint8_t time) {
     // Print data-----
-        currentMillis[3] = millis();
-        if (currentMillis[3] - previousMillis[3] >= time) {
-            printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
-            previousMillis[3] = currentMillis[3];
-        }
- }
-   
+    currentMillis[3] = millis();
+    if (currentMillis[3] - previousMillis[3] >= time) {
+        printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
+        previousMillis[3] = currentMillis[3];
+    }
+}
