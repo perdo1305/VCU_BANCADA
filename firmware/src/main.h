@@ -14,20 +14,23 @@
 #define MAIN_H
 
 // Inverter CAN IDs
-#define SetCurrent_ID 0x01               // byte 0-1
-#define SetBrakeCurrent_ID 0x02          // byte 0-1
-#define SetERPM_ID 0x03                  // byte 0-3
-#define SetPosition_ID 0x04              // byte 0-1
-#define SetRelativeCurrent_ID 0x05       // byte 0-1
-#define SetRelativeBrakeCurrent_ID 0x06  // byte 0-1
-#define SetDigitalOutput_ID 0x07         // byte 0-3
-#define SetMaxACCurrent_ID 0x08          // byte 0-1
-#define SetMaxACBrakeCurrent_ID 0x09     // byte 0-1
-#define SetMaxDCCurrent_ID 0x0A          // byte 0-1
-#define SetMaxDCBrakeCurrent_ID 0x0B     // byte 0-1
-#define DriveEnable_ID 0x0C              // byte 0
+#define SetCurrent_ID 0x01                                   // byte 0-1
+#define SetBrakeCurrent_ID 0x02                              // byte 0-1
+#define SetERPM_ID 0x03                                      // byte 0-3
+#define SetPosition_ID 0x04                                  // byte 0-1
+#define SetRelativeCurrent_ID 0x05                           // byte 0-1
+#define SetRelativeBrakeCurrent_ID 0x06                      // byte 0-1
+#define SetDigitalOutput_ID 0x07                             // byte 0-3
+#define SetMaxACCurrent_ID 0x08                              // byte 0-1
+#define SetMaxACBrakeCurrent_ID 0x09                         // byte 0-1
+#define SetMaxDCCurrent_ID 0x0A                              // byte 0-1
+#define SetMaxDCBrakeCurrent_ID 0x0B                         // byte 0-1
+#define DriveEnable_ID 0x0C                                  // byte 0
+#define ERPMDutyCycleInputVoltage_ID 0x0D                    // byte 0-7
+#define ACDCcurrentControllerMotorTemperatureFaults_ID 0x0E  // byte 0-7
+#define ThrottleBrakeDigitalInput1_2_3_4_ID 0x0F             // byte 0-3
 
-// Inverter CAN messages
+// CAN Messages to send to Inverter
 int8_t SetCurrent[2] = {0, 0};
 int8_t SetBrakeCurrent[2] = {0, 0};
 int8_t SetERPM[4] = {0, 0, 0, 0};
@@ -40,6 +43,48 @@ int8_t SetMaxACBrakeCurrent[2] = {0, 0};
 int8_t SetMaxDCCurrent[2] = {0, 0};
 int8_t SetMaxDCBrakeCurrent[2] = {0, 0};
 int8_t DriveEnable[1] = {0};
+
+// CAN Messages to receive from Inverter
+int32_t ERPM = 0;                  // Electrical RPM Equation: ERPM = Motor RPM * number of the motor pole pairs
+int16_t DutyCycle = 0;             // The controller duty cycle. The sign of this value will represent whether the motor is running(positive) current or regenerating (negative) current
+int16_t InputVoltage = 0;          // Input voltage is the DC voltage
+int16_t ACcurrent = 0;             // The motor current. The sign of this value represents whether the motor is running(positive) current or regenerating (negative) current
+int16_t DCcurrent = 0;             // DC Current: Current on DC side. The sign of this value represents whether the motor is running(positive) current or regenerating (negative) current.
+int8_t ControllerTemperature = 0;  // Temperature of the inverter semiconductors
+int16_t MotorTemperature = 0;      // Temperature of the motor measured by the inverter
+int8_t Faults = 0;                 // 0x00 : NO FAULTS
+                                   // 0x01 : Overvoltage - The input voltage is higher than the set maximum.
+                                   // 0x02 : Undervoltage - The input voltage is lower than the set minimum.
+                                   // 0x03 : DRV - Transistor or transistor drive error
+                                   // 0x04 : ABS. Overcurrent - The AC current is higher than the set absolute maximum current.
+                                   // 0x05 : CTLR Overtemp. - The controller temperature is higher than the set maximum.
+                                   // 0x06 : Motor Overtemp. - The motor temperature is higher than the set maximum.
+                                   // 0x07 : Sensor wire fault - Something went wrong with the sensor differential signals.
+                                   // 0x08 : Sensor general fault - An error occurred while processing the sensor signals
+                                   // 0x09 : CAN Command error - CAN message received contains parameter out of boundaries
+                                   // 0x0A : Analog input error  Redundant output out of range
+int8_t ThrottleSignal = 0;         // Throttle signal derived from analog inputs or CAN2
+int8_t BrakeSignal = 0;            // Brake signal derived from analog inputs or CAN2
+bool DigitalInput1 = 0;            // 0-1
+bool DigitalInput2 = 0;            // 0-1
+bool DigitalInput3 = 0;            // 0-1
+bool DigitalInput4 = 0;            // 0-1
+bool DigitalOutput1 = 0;           // 0-1
+bool DigitalOutput2 = 0;           // 0-1
+bool DigitalOutput3 = 0;           // 0-1
+bool DigitalOutput4 = 0;           // 0-1
+bool DriveEnabled = 0;             // 0-1
+bool CapacitorTempLimit = 0;       // 0-1
+bool DCcurrentLimit = 0;           // 0-1
+bool DriveEnableLimit = 0;         // 0-1
+bool IGBTAccelLimit = 0;           // 0-1
+bool IGBTTempLimit = 0;            // 0-1
+bool InputVoltageLimit = 0;        // 0-1
+bool MotorAccelLimit = 0;          // 0-1
+bool MotorTempLimit = 0;           // 0-1
+bool RPMMinLimit = 0;              // 0-1
+bool RPMMaxLimit = 0;              // 0-1
+bool PowerLimit = 0;               // 0-1
 
 // ############# CAN VARS ###################################
 /* ID 0x20 */

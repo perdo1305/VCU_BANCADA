@@ -59,11 +59,20 @@ CANFD_MSG_RX_ATTRIBUTE msgAttr = CANFD_MSG_RX_DATA_FRAME;  // RX message attribu
 
 static uint8_t rx_message[64] = {};  // CAN message receive buffer
 uint32_t rx_messageID = 0;           // RX message ID
-uint32_t status = 0;                 // CAN status
 uint8_t rx_messageLength = 0;        // RX message length
 
-bool CANRX_ON = 0;  // flag to check if CAN is receiving
-bool CANTX_ON = 0;  // flag to check if CAN is transmitting
+uint32_t status1 = 0;  // CAN status
+uint32_t status2 = 0;  // CAN status
+uint32_t status3 = 0;  // CAN status
+
+bool CANRX1_ON = 0;  // flag to check if CAN is receiving
+bool CANTX1_ON = 0;  // flag to check if CAN is transmitting
+
+bool CANRX2_ON = 0;  // flag to check if CAN is receiving
+bool CANTX2_ON = 0;  // flag to check if CAN is transmitting
+
+bool CANRX3_ON = 0;  // flag to check if CAN is receiving
+bool CANTX3_ON = 0;  // flag to check if CAN is transmitting
 
 // ############# TX CAN FRAME ###############################
 uint8_t message_CAN_TX[8] = {};  // TX message buffer
@@ -88,12 +97,18 @@ unsigned int millis(void) {
 }
 
 // ############# FUNCTIONS ##################################
-void Read_ADC(ADCHS_CHANNEL_NUM channel);                    // Read ADC function
-void Read_CAN(void);                                         // Read CAN function
-bool APPS_Function(uint16_t APPS1, uint16_t APPS2);          // APPS function to calculate average and percentage
-void Send_CAN(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN function
-void startupSequence(void);                                  // Startup sequence
-void PrintToConsole(uint8_t);                                   // Print data to console
+void Read_ADC(ADCHS_CHANNEL_NUM channel);            // Read ADC function
+bool APPS_Function(uint16_t APPS1, uint16_t APPS2);  // APPS function to calculate average and percentage
+
+void Read_CAN_1(void);                                         // Read CAN 1 function
+void Send_CAN_1(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 1 function
+void Read_CAN_2(void);                                         // Read CAN 2 function
+void Send_CAN_2(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 2 function
+void Read_CAN_3(void);                                         // Read CAN 3 function
+void Send_CAN_3(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 3 function
+
+void startupSequence(void);    // Startup sequence
+void PrintToConsole(uint8_t);  // Print data to console
 
 // ############# TMR FUNCTIONS ###############################
 void TMR1_5ms(uint32_t status, uintptr_t context) {  // 200Hz
@@ -167,16 +182,16 @@ int main(void) {
     while (true) {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks();
-        Read_CAN();  // Read CAN
+
+        Read_CAN_1();  // Read DataBus
+        Read_CAN_2();  // Read PowerTrainBus
+        Read_CAN_3();  // Read AutonomousBus
 
         PrintToConsole(200);  // Print data to console time in ms
-        
     }
     /* Execution should not come here during normal operation */
     return (EXIT_FAILURE);
 }
-
-
 
 void Read_ADC(ADCHS_CHANNEL_NUM channel) {
     ADCHS_ChannelConversionStart(channel);
@@ -187,11 +202,11 @@ void Read_ADC(ADCHS_CHANNEL_NUM channel) {
     }
 }
 
-void Read_CAN() {
-    status = CAN1_ErrorGet();
+void Read_CAN_1() {
+    status1 = CAN1_ErrorGet();
     // printf("Status: %d\r\n", status);
 
-    if (status == CANFD_ERROR_NONE) {
+    if (status1 == CANFD_ERROR_NONE) {
         memset(rx_message, 0x00, sizeof(rx_message));
         if (CAN1_MessageReceive(&rx_messageID, &rx_messageLength, rx_message, 0, 2, &msgAttr)) {
             /*
@@ -205,19 +220,19 @@ void Read_CAN() {
             }
             printf("\r\n");
              */
-            CANRX_ON = 1;
+            CANRX1_ON = 1;
             GPIO_RC2_Toggle();
         }
     } else {
         GPIO_RC2_Clear();
-        CANRX_ON = 0;
+        CANRX1_ON = 0;
     }
 }
 
-void Send_CAN(uint32_t id, uint8_t* message, uint8_t size) {
+void Send_CAN_1(uint32_t id, uint8_t* message, uint8_t size) {
     if (CAN1_TxFIFOQueueIsFull(0)) {
         // debug_printf("CAN1_TxFIFOQueueIsFull\r\n");
-        CANTX_ON = 0;
+        CANTX1_ON = 0;
     } else {
         if (CAN1_MessageTransmit(id, size, message, 0, CANFD_MODE_NORMAL, CANFD_MSG_TX_DATA_FRAME)) {
             // debug_printf("id 0x%x sent successfully \r\n", id);
@@ -227,27 +242,100 @@ void Send_CAN(uint32_t id, uint8_t* message, uint8_t size) {
             //}
             // debug_printf("\r\n");
             //  GPIO_RC2_Toggle();
-            CANTX_ON = 1;
+            CANTX1_ON = 1;
         } else {
             // debug_printf("id 0x%x not sent\r\n", id);
-            CANTX_ON = 0;
+            CANTX1_ON = 0;
+        }
+    }
+}
+
+void Read_CAN_2() {
+    status2 = CAN2_ErrorGet();
+    if (status2 == CANFD_ERROR_NONE) {
+        memset(rx_message, 0x00, sizeof(rx_message));
+        if (CAN2_MessageReceive(&rx_messageID, &rx_messageLength, rx_message, 0, 2, &msgAttr)) {
+            CANRX2_ON = 1;
+
+            //TODO : Add the rest of the cases
+            switch (rx_messageID) {
+                case ERPMDutyCycleInputVoltage_ID:
+                    ERPM = (rx_message[0] << 8) | rx_message[1];
+                    DutyCycle = (rx_message[2] << 8) | rx_message[3];
+                    InputVoltage = (rx_message[4] << 8) | rx_message[5];
+                    break;
+                case ACDCcurrentControllerMotorTemperatureFaults_ID:
+                    ACcurrent = (rx_message[0] << 8) | rx_message[1];
+                    DCcurrent = (rx_message[2] << 8) | rx_message[3];
+                    ControllerTemperature = (rx_message[4] << 8) | rx_message[5];
+                    MotorTemperature = (rx_message[6] << 8) | rx_message[7];
+                    break;
+                case ThrottleBrakeDigitalInput1_2_3_4_ID:
+                    ThrottleSignal = rx_message[0];
+                    BrakeSignal = rx_message[1];
+                    DigitalInput1 = rx_message[2];
+                    DigitalInput2 = rx_message[3];
+                    DigitalInput3 = rx_message[4];
+                    DigitalInput4 = rx_message[5];
+                    break;
+                default:
+                    break;
+            }
+        }
+    } else {
+        CANRX2_ON = 0;
+    }
+}
+
+void Send_CAN_2(uint32_t id, uint8_t* message, uint8_t size) {
+    if (CAN2_TxFIFOQueueIsFull(0)) {
+        CANTX2_ON = 0;
+    } else {
+        if (CAN2_MessageTransmit(id, size, message, 0, CANFD_MODE_NORMAL, CANFD_MSG_TX_DATA_FRAME)) {
+            CANTX2_ON = 1;
+        } else {
+            CANTX2_ON = 0;
+        }
+    }
+}
+
+void Read_CAN_3() {
+    status3 = CAN3_ErrorGet();
+    if (status3 == CANFD_ERROR_NONE) {
+        memset(rx_message, 0x00, sizeof(rx_message));
+        if (CAN3_MessageReceive(&rx_messageID, &rx_messageLength, rx_message, 0, 2, &msgAttr)) {
+            CANRX3_ON = 1;
+        }
+    } else {
+        CANRX3_ON = 0;
+    }
+}
+
+void Send_CAN_3(uint32_t id, uint8_t* message, uint8_t size) {
+    if (CAN3_TxFIFOQueueIsFull(0)) {
+        CANTX3_ON = 0;
+    } else {
+        if (CAN3_MessageTransmit(id, size, message, 0, CANFD_MODE_NORMAL, CANFD_MSG_TX_DATA_FRAME)) {
+            CANTX3_ON = 1;
+        } else {
+            CANTX3_ON = 0;
         }
     }
 }
 
 /**
  * This function checks the validity of the Accelerator Pedal Position Sensor (APPS) readings and calculates their average.
- * 
+ *
  * @param APPS1 The first APPS reading, ranges from 0 to 4095.
  * @param APPS2 The second APPS reading, ranges from 4095 to 0 (inverted).
- * 
- * @return Returns a boolean indicating if there is an error in the APPS readings. 
- *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range), 
+ *
+ * @return Returns a boolean indicating if there is an error in the APPS readings.
+ *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range),
  *         and the error persists for more than 100ms. Otherwise, returns false.
- * 
+ *
  * The function first checks if the APPS readings are inverted. If they are, it inverts APPS2.
  * Then it calculates the absolute difference between APPS1 and APPS2.
- * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995, 
+ * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995,
  * it considers it as an error.
  * If an error is detected, it sets a flag and starts a timer. If the error persists for more than 100ms, it sets the error flag.
  * If no error is detected, it resets the error flag and the timer.
@@ -301,7 +389,7 @@ void setSetCurrent(int16_t current) {
     current = current * 10;
     SetCurrent[0] = current >> 8;
     SetCurrent[1] = current;
-    Send_CAN(SetCurrent_ID, (uint8_t*)SetCurrent, 2);
+    Send_CAN_1(SetCurrent_ID, (uint8_t*)SetCurrent, 2);
 }
 /**
  * Sets the brake current value and sends it over CAN bus.
@@ -312,7 +400,7 @@ void setSetBrakeCurrent(int16_t brakeCurrent) {
     brakeCurrent = brakeCurrent * 10;
     SetBrakeCurrent[0] = brakeCurrent >> 8;
     SetBrakeCurrent[1] = brakeCurrent;
-    Send_CAN(SetBrakeCurrent_ID, (uint8_t*)SetBrakeCurrent, 2);
+    Send_CAN_1(SetBrakeCurrent_ID, (uint8_t*)SetBrakeCurrent, 2);
 }
 /**
  * Sets the ERPM value and sends it over CAN bus.
@@ -323,7 +411,7 @@ void setSetERPM(int32_t ERPM) {
     SetERPM[1] = ERPM >> 16;
     SetERPM[2] = ERPM >> 8;
     SetERPM[3] = ERPM;
-    Send_CAN(SetERPM_ID, (uint8_t*)SetERPM, 4);
+    Send_CAN_1(SetERPM_ID, (uint8_t*)SetERPM, 4);
 }
 
 /**
@@ -335,7 +423,7 @@ void setSetPosition(int16_t position) {
     position = position * 10;
     SetPosition[0] = position >> 8;
     SetPosition[1] = position;
-    Send_CAN(SetPosition_ID, (uint8_t*)SetPosition, 2);
+    Send_CAN_1(SetPosition_ID, (uint8_t*)SetPosition, 2);
 }
 /**
  * Sets the relative current value and sends it over CAN bus.
@@ -353,7 +441,7 @@ void setSetRelativeCurrent(int16_t relativecurrent) {
     relativecurrent = relativecurrent * 10;
     SetRelativeCurrent[0] = relativecurrent >> 8;
     SetRelativeCurrent[1] = relativecurrent;
-    Send_CAN(SetRelativeCurrent_ID, (uint8_t*)SetRelativeCurrent, 2);
+    Send_CAN_1(SetRelativeCurrent_ID, (uint8_t*)SetRelativeCurrent, 2);
 }
 
 /**
@@ -372,7 +460,7 @@ void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
     relativebrakecurrent = relativebrakecurrent * 10;
     SetRelativeBrakeCurrent[0] = relativebrakecurrent >> 8;
     SetRelativeBrakeCurrent[1] = relativebrakecurrent;
-    Send_CAN(SetRelativeBrakeCurrent_ID, (uint8_t*)SetRelativeBrakeCurrent, 2);
+    Send_CAN_1(SetRelativeBrakeCurrent_ID, (uint8_t*)SetRelativeBrakeCurrent, 2);
 }
 /**
  * Sets the digital output values and sends them over CAN bus.
@@ -386,7 +474,7 @@ void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitalo
     SetDigitalOutput[1] = digitaloutput2;
     SetDigitalOutput[2] = digitaloutput3;
     SetDigitalOutput[3] = digitaloutput4;
-    Send_CAN(SetDigitalOutput_ID, (uint8_t*)SetDigitalOutput, 4);
+    Send_CAN_1(SetDigitalOutput_ID, (uint8_t*)SetDigitalOutput, 4);
 }
 /**
  * Sets the maximum AC current value and sends it over CAN bus.
@@ -397,7 +485,7 @@ void setSetMaxACCurrent(int16_t maxcurrent) {
     maxcurrent = maxcurrent * 10;
     SetMaxACCurrent[0] = maxcurrent >> 8;
     SetMaxACCurrent[1] = maxcurrent;
-    Send_CAN(SetMaxACCurrent_ID, (uint8_t*)SetMaxACCurrent, 2);
+    Send_CAN_1(SetMaxACCurrent_ID, (uint8_t*)SetMaxACCurrent, 2);
 }
 /**
  * Sets the maximum AC brake current value and sends it over CAN bus.
@@ -413,7 +501,7 @@ void setSetMaxACBrakeCurrent(int16_t maxbrakecurrent) {
     maxbrakecurrent = maxbrakecurrent * 10;
     SetMaxACBrakeCurrent[0] = maxbrakecurrent >> 8;
     SetMaxACBrakeCurrent[1] = maxbrakecurrent;
-    Send_CAN(SetMaxACBrakeCurrent_ID, (uint8_t*)SetMaxACBrakeCurrent, 2);
+    Send_CAN_1(SetMaxACBrakeCurrent_ID, (uint8_t*)SetMaxACBrakeCurrent, 2);
 }
 /**
  * Sets the maximum DC current value and sends it over CAN bus.
@@ -424,7 +512,7 @@ void setSetMaxDCCurrent(int16_t maxdccurrent) {
     maxdccurrent = maxdccurrent * 10;
     SetMaxDCCurrent[0] = maxdccurrent >> 8;
     SetMaxDCCurrent[1] = maxdccurrent;
-    Send_CAN(SetMaxDCCurrent_ID, (uint8_t*)SetMaxDCCurrent, 2);
+    Send_CAN_1(SetMaxDCCurrent_ID, (uint8_t*)SetMaxDCCurrent, 2);
 }
 /**
  * Sets the maximum DC brake current value and sends it over CAN bus.
@@ -440,7 +528,7 @@ void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
     maxdcbrakecurrent = maxdcbrakecurrent * 10;
     SetMaxDCBrakeCurrent[0] = maxdcbrakecurrent >> 8;
     SetMaxDCBrakeCurrent[1] = maxdcbrakecurrent;
-    Send_CAN(SetMaxDCBrakeCurrent_ID, (uint8_t*)SetMaxDCBrakeCurrent, 2);
+    Send_CAN_1(SetMaxDCBrakeCurrent_ID, (uint8_t*)SetMaxDCBrakeCurrent, 2);
 }
 /**
  * Sets the drive enable value and sends it over CAN bus.
@@ -448,7 +536,7 @@ void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
  */
 void setDriveEnable(bool driveenable) {
     DriveEnable[0] = driveenable;
-    Send_CAN(DriveEnable_ID, (uint8_t*)DriveEnable, 1);
+    Send_CAN_1(DriveEnable_ID, (uint8_t*)DriveEnable, 1);
 }
 
 void SendID_20(void) {
@@ -464,7 +552,7 @@ void SendID_20(void) {
     message_CAN_TX[6] = (Current_Power >> 8) & 0xFF;
     message_CAN_TX[7] = Current_Power & 0xFF;
 
-    Send_CAN(id, message_CAN_TX, 8);
+    Send_CAN_1(id, message_CAN_TX, 8);
 }
 
 void SendID_21(void) {
@@ -478,7 +566,7 @@ void SendID_21(void) {
     message_CAN_TX[6] = 0;
     message_CAN_TX[7] = 0;
 
-    Send_CAN(id, message_CAN_TX, 8);
+    Send_CAN_1(id, message_CAN_TX, 8);
 }
 
 void SendID_22(void) {
@@ -492,7 +580,7 @@ void SendID_22(void) {
     message_CAN_TX[6] = 0;
     message_CAN_TX[7] = 0;
 
-    Send_CAN(id, message_CAN_TX, 8);
+    Send_CAN_1(id, message_CAN_TX, 8);
 }
 
 void SendID_23(void) {
@@ -505,7 +593,7 @@ void SendID_23(void) {
     message_CAN_TX[5] = 0;
     message_CAN_TX[6] = 0;
     message_CAN_TX[7] = 0;
-    Send_CAN(id, message_CAN_TX, 8);
+    Send_CAN_1(id, message_CAN_TX, 8);
 }
 
 void SendID_420(void) {  // for debugging
@@ -518,7 +606,7 @@ void SendID_420(void) {  // for debugging
     message_CAN_TX[5] = apps_error;
     message_CAN_TX[6] = 0;
     message_CAN_TX[7] = 0;
-    Send_CAN(id, message_CAN_TX, 8);
+    Send_CAN_1(id, message_CAN_TX, 8);
 }
 
 void startupSequence() {
@@ -540,12 +628,11 @@ void startupSequence() {
     GPIO_RC2_Clear();
 }
 
- void PrintToConsole(uint8_t time) {
+void PrintToConsole(uint8_t time) {
     // Print data-----
-        currentMillis[3] = millis();
-        if (currentMillis[3] - previousMillis[3] >= time) {
-            printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status, CANRX_ON, CANTX_ON);
-            previousMillis[3] = currentMillis[3];
-        }
- }
-   
+    currentMillis[3] = millis();
+    if (currentMillis[3] - previousMillis[3] >= time) {
+        printf("APPS1: %d APPS2: %d APPS_percent: %d APPS_error: %d CAN_status:%d CanRX_ON:%d CanTX_ON:%d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, status1, CANRX1_ON, CANTX1_ON);
+        previousMillis[3] = currentMillis[3];
+    }
+}

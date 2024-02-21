@@ -14,6 +14,8 @@
             <logicalFolder name="canfd" displayName="canfd" projectFiles="true">
               <itemPath>../src/config/default/peripheral/canfd/plib_canfd_common.h</itemPath>
               <itemPath>../src/config/default/peripheral/canfd/plib_canfd1.h</itemPath>
+              <itemPath>../src/config/default/peripheral/canfd/plib_canfd3.h</itemPath>
+              <itemPath>../src/config/default/peripheral/canfd/plib_canfd2.h</itemPath>
             </logicalFolder>
             <logicalFolder name="clk" displayName="clk" projectFiles="true">
               <itemPath>../src/config/default/peripheral/clk/plib_clk.h</itemPath>
@@ -71,6 +73,8 @@
             </logicalFolder>
             <logicalFolder name="canfd" displayName="canfd" projectFiles="true">
               <itemPath>../src/config/default/peripheral/canfd/plib_canfd1.c</itemPath>
+              <itemPath>../src/config/default/peripheral/canfd/plib_canfd2.c</itemPath>
+              <itemPath>../src/config/default/peripheral/canfd/plib_canfd3.c</itemPath>
             </logicalFolder>
             <logicalFolder name="clk" displayName="clk" projectFiles="true">
               <itemPath>../src/config/default/peripheral/clk/plib_clk.c</itemPath>
