@@ -22,13 +22,13 @@
 // *****************************************************************************
 // *****************************************************************************
 
-#include "main.h"
-#include "APPS.h"
+#include "../VCU_BANCADA.X/main.h"
 
 #include <stdbool.h>  // Defines true
 #include <stddef.h>   // Defines NULL
 #include <stdlib.h>   // Defines EXIT_FAILURE
 
+#include "../VCU_BANCADA.X/utils.h"
 #include "definitions.h"  // SYS function prototypes
 // *****************************************************************************
 // *****************************************************************************
@@ -83,20 +83,13 @@ uint8_t cantx_message[8] = {};   // TX message buffer
 
 uint8_t message_ADC[64];      // CAN message to send ADC data
 __COHERENT uint16_t ADC[64];  // ADC raw data
-float APPS_MaxVoltage = 3.0;
-float APPS_MinVoltage = 0.3;
-uint16_t APPS_average = 0;  // average of APPS1 and APPS2
-uint16_t APPS_1000 = 0;     // 0-1000 of average of APPS1 and APPS2
-float APPS_percent = 0;  // 0-100% of average of APPS1 and APPS2
-bool apps_error = 0;        // error if APPS1 and APPS2 are 10% apart
-bool error_flag = 0;        //  used in apps function to check if there is an error
 
 // ############# MILIS #######################################
 unsigned int previousMillis[10] = {};
 unsigned int currentMillis[10] = {};
 // ############# MILIS #######################################
 
-unsigned int millis(void) {
+unsigned int millis() {
     return (unsigned int)(CORETIMER_CounterGet() / (CORE_TIMER_FREQUENCY / 1000));
 }
 
@@ -117,16 +110,16 @@ void PrintToConsole(uint8_t);  // Print data to console
 // ############# TMR FUNCTIONS ###############################
 void TMR1_5ms(uint32_t status, uintptr_t context) {  // 200Hz
     // memset(message_CAN_TX, 0, sizeof(message_CAN_TX));
-    //SendID_20();  // send data to ID 0x20 in DataBus
+    // SendID_20();  // send data to ID 0x20 in DataBus
     // memset(message_CAN_TX, 0, sizeof(message_CAN_TX));
-    //SendID_23();  // send data to ID 0x23 in DataBus
+    // SendID_23();  // send data to ID 0x23 in DataBus
 }
 
 void TMR2_100ms(uint32_t status, uintptr_t context) {  // 10Hz
     // memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
-    //SendID_21();  // send data to ID 0x21 in DataBus
+    // SendID_21();  // send data to ID 0x21 in DataBus
     // memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
-    //SendID_22();  // send data to ID 0x22 in DataBus
+    // SendID_22();  // send data to ID 0x22 in DataBus
 }
 
 void TMR4_500ms(uint32_t status, uintptr_t context) {  // 2Hz
@@ -134,21 +127,43 @@ void TMR4_500ms(uint32_t status, uintptr_t context) {  // 2Hz
 }
 
 void TMR5_100ms(uint32_t status, uintptr_t context) {
-    apps_error = APPS_Function(ADC[0], ADC[3]);  // checks if there is an error in the APPS and calculates the average and percentage
+    // apps_error = APPS_Function(ADC[0], ADC[3]);  // checks if there is an error in the APPS and calculates the average and percentage
 }
 void TMR6_5ms(uint32_t status, uintptr_t context) {
-    // setSetERPM(500 * APPS_percent);  // Send APPS_percent to inverter
-    setSetERPM(50 * APPS_1000);
+    APPS_Function(ADC[0], ADC[3]);
+    // setSetERPM(250 * APPS_Percentage);  // Send APPS_percent to inverter
+    setSetERPM(25 * APPS_Percentage_1000);
+
     setDriveEnable(1);
 }
 
 // ############# ADC CALLBACKS ###############################
 void ADCHS_CH0_Callback(ADCHS_CHANNEL_NUM channel, uintptr_t context) {
-    ADC[channel] = ADCHS_ChannelResultGet(channel);
+    static int samples[4] = {0};
+    static int i = 0;
+
+    samples[i] = ADCHS_ChannelResultGet(channel);
+    i = (i + 1) % 4;
+
+    int sum = 0;
+    for (int j = 0; j < 4; j++) {
+        sum += samples[j];
+    }
+    ADC[channel] = sum / 4;
 }
 
 void ADCHS_CH3_Callback(ADCHS_CHANNEL_NUM channel, uintptr_t context) {
-    ADC[channel] = ADCHS_ChannelResultGet(channel);
+    static int samples[4] = {0};
+    static int i = 0;
+
+    samples[i] = ADCHS_ChannelResultGet(channel);
+    i = (i + 1) % 4;
+
+    int sum = 0;
+    for (int j = 0; j < 4; j++) {
+        sum += samples[j];
+    }
+    ADC[channel] = sum / 4;
 }
 
 int main(void) {
@@ -175,7 +190,6 @@ int main(void) {
                                                              printf("\n\n");
                                                             fflush(stdout);
                                                         */
-    startupSequence();                                   // led sequence
 
     // config inverter
     // setSetCurrent(20);
@@ -191,9 +205,9 @@ int main(void) {
     // setSetMaxDCBrakeCurrent(5);
     // setDriveEnable(1);  // Enable the inverter
 
-    TMR1_Start();
+    // TMR1_Start();
     CORETIMER_DelayMs(5);
-    TMR2_Start();
+    // TMR2_Start();
     CORETIMER_DelayMs(5);
     TMR3_Start();  // Used trigger source for ADC conversion
     CORETIMER_DelayMs(5);
@@ -204,26 +218,53 @@ int main(void) {
     TMR6_Start();
     CORETIMER_DelayMs(5);
 
-    //setSetDriveEnable(0);
+    // setSetDriveEnable(0);
 
-    //setSetBrakeCurrent(0);
-    //setSetPosition(0);
-    //setSetRelativeCurrent(0);
-    //setSetRelativeBrakeCurrent(0);
-    //setSetMaxACCurrent(0);
-    //setSetMaxACBrakeCurrent(0);
-    //setSetMaxDCCurrent(0);
-    //setSetMaxDCBrakeCurrent(0);
-    //setSetDigitalOutput(1, 0, 0, 0);
+    // setSetBrakeCurrent(0);
+    // setSetPosition(0);
+    // setSetRelativeCurrent(0);
+    // setSetRelativeBrakeCurrent(0);
+    // setSetMaxACCurrent(0);
+    // setSetMaxACBrakeCurrent(0);
+    // setSetMaxDCCurrent(0);
+    // setSetMaxDCBrakeCurrent(0);
+    // setSetDigitalOutput(1, 0, 0, 0);
 
+    APPS_Init(0.3, 3.0, 0.2);  // Initialize APPS
+
+    startupSequence();  // led sequence
 
     while (true) {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks();
 
         Read_CAN_1();  // Read DataBus
-                       // Read_CAN_2();  // Read PowerTrainBus
-                       // Read_CAN_3();  // Read AutonomousBus
+        //  Read_CAN_2();  // Read PowerTrainBus
+        //  Read_CAN_3();  // Read AutonomousBus
+
+        if (UART1_ReceiverIsReady()) {
+            uint8_t data = UART1_ReadByte();
+            switch (data) {
+                case 48:
+
+                    if (UART1_ReceiverIsReady()) {
+                        uint8_t buffer[8];
+                        int buffer_size = 8;
+                        UART1_Read(buffer, buffer_size);
+
+                        float apps_tol= ((buffer[0] << 8) | buffer[1]) / 10;
+                        float apps_max= ((buffer[2] << 8) | buffer[3]) / 10;
+                        float apps_min= ((buffer[4] << 8) | buffer[5]) / 10;
+
+                        APPS_Init(apps_min,apps_max ,apps_tol);
+                        data = 0;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
 
         PrintToConsole(200);  // Print data to console time in ms
     }
@@ -353,97 +394,7 @@ void Send_CAN_3(uint32_t id, uint8_t* message, uint8_t size) {
     }
 }
 */
-/**
- * This function checks the validity of the Accelerator Pedal Position Sensor (APPS) readings and calculates their average.
- *
- *
- * @param APPS1 The first APPS reading, ranges from 0 to 4095.
- * @param APPS2 The second APPS reading, ranges from 4095 to 0 (inverted).
- *
- * @return Returns a boolean indicating if there is an error in the APPS readings.
- *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range),
- *
- * @return Returns a boolean indicating if there is an error in the APPS readings.
- *         Returns true if there is an error (difference between APPS1 and APPS2 is more than 10% or either of them is out of range),
- *         and the error persists for more than 100ms. Otherwise, returns false.
- *
- *
- * The function first checks if the APPS readings are inverted. If they are, it inverts APPS2.
- * Then it calculates the absolute difference between APPS1 and APPS2.
- * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995,
- * If the difference is more than 10% of the maximum possible value (409), or if either of the readings is less than 5 or more than 3995,
- * it considers it as an error.
- * If an error is detected, it sets a flag and starts a timer. If the error persists for more than 100ms, it sets the error flag.
- * If no error is detected, it resets the error flag and the timer.
- * Finally, it calculates the average of APPS1 and APPS2, and converts it to a percentage of the maximum possible value (4095).
- */
-bool APPS_Function(uint16_t APPS1, uint16_t APPS2) {
-    /* range :   APPS1 0-4095
-                 APPS2 4095-0
-                 */
 
-    static unsigned long error_start_time = 0;  // timer to check if there is an error
-    unsigned long current_time;                 // used to save millis value
-    int diff;                                   // difference between APPS1 and APPS2
-
-#if INVERTED_APPS
-    APPS2 = 4095 - APPS2;  // invert APPS2
-#endif
-
-    diff = abs(APPS1 - APPS2);  // Check if APPS1 and APPS2 are too far apart (10% = 409)
-
-    if (diff > 409 || (APPS1 < 5 || APPS2 < 5) || (APPS1 > 3995 || APPS2 > 3995)) {  // Error detected
-        if (error_flag == 0) {
-            error_start_time = millis();  // save the time when the error was detected
-            error_flag = 1;
-        } else {  // Error already detected, check if timer has expired
-
-            current_time = millis();  // save the current time
-            if (current_time - error_start_time > 100) {
-                // Error has persisted for more than 100 ms, set error flag
-                error_flag = 1;
-            }
-        }
-    } else {  // No error, reset error flag and timer
-        error_flag = 0;
-        error_start_time = 0;
-    }
-    // if the voltage is below 0.3V or above 3V, it is considered an error and the apps is set to 0
-    //float APPS_MAX = APPS_MaxVoltage * 4095.0 / 3.3;
-    //float APPS_MIN = APPS_MinVoltage * 4095.0 / 3.3;
-    uint16_t APPS_Functional_Region = 3722 - 372;
-    //printf("APPS_MAX %.02f",APPS_MAX);
-    //printf("APPS_MIN %.02f",APPS_MIN);
-    //printf("APPS region %.02f",APPS_Functional_Region);
-    
-    if (APPS1 < 372 || APPS1 > 3800 || APPS2 < 372 || APPS2 > 3800) {
-        APPS_average = 0;
-        APPS_percent = 0;
-        APPS_1000 = 0;
-        error_flag = 1;
-    } else {
-        // calculate the average and percentage of the two APPS with a range of 0-100% with the values of apps max and min
-        APPS_average = (APPS1 + APPS2) / 2;
-        APPS_percent = (float) (((APPS_average-372) * 100) / APPS_Functional_Region);
-        // constrain the value to 0- 100
-        if (APPS_percent > 100) {
-            APPS_percent = 100;
-        } else if (APPS_percent < 0) {
-            APPS_percent = 0;
-        }
-        APPS_1000 = ((APPS_average - 372) * 1000) / 3800;
-        /*
-        if (APPS_1000 > 1000) {
-            APPS_1000 = 1000;
-        } else if (APPS_1000 < 0) {
-            APPS_1000 = 0;
-        }*/
-    }
-
-    // debug_printf("APPS_average: %d\r\n", APPS_average);
-    // debug_printf("APPSA%d APPSB%d APPST%d APPS_ERROR%d\r", APPS1, APPS2, APPS_percent, error_flag);
-    return error_flag;
-}
 /**
  * This command sets the target motor AC current (peak, not
  * RMS). When the controller receives this message, it
@@ -457,9 +408,10 @@ bool APPS_Function(uint16_t APPS1, uint16_t APPS2) {
  */
 void setSetCurrent(int16_t current) {
     current = current * 10;
-    SetCurrent[0] = current >> 8;
-    SetCurrent[1] = current;
-    Send_CAN_1(SetCurrent_ID, SetCurrent, 2);
+    uint8_t temp[2];
+    temp[0] = current >> 8;
+    temp[1] = current;
+    Send_CAN_1(SetCurrent_ID, temp, 2);
 }
 /**
  * Targets the brake current of the motor. It will result negative
@@ -468,11 +420,11 @@ void setSetCurrent(int16_t current) {
  * positive currents are accepted.
  * @param brakeCurrent The brake current value to set.
  */
-void setSetBrakeCurrent(int16_t brakeCurrent) {
-    brakeCurrent = brakeCurrent * 10;
-    SetBrakeCurrent[0] = brakeCurrent >> 8;
-    SetBrakeCurrent[1] = brakeCurrent;
-    Send_CAN_1(SetBrakeCurrent_ID, SetBrakeCurrent, 2);
+void setSetBrakeCurrent(int16_t current) {
+    uint8_t temp[2];
+    temp[0] = current >> 8;
+    temp[1] = current;
+    Send_CAN_1(SetBrakeCurrent_ID, temp, 2);
 }
 /**
  * This command enables the speed control of the motor with a
@@ -482,12 +434,13 @@ void setSetBrakeCurrent(int16_t brakeCurrent) {
  * Equation: ERPM = Motor RPM * number of the motor pole pairs.
  * @param ERPM The ERPM value to set.
  */
-void setSetERPM(int32_t ERPM) {
-    SetERPM[0] = ERPM >> 24;
-    SetERPM[1] = ERPM >> 16;
-    SetERPM[2] = ERPM >> 8;
-    SetERPM[3] = ERPM;
-    Send_CAN_1(SetERPM_ID, SetERPM, 4);
+void setSetERPM(int32_t erpm) {
+    uint8_t temp[4];
+    temp[0] = erpm >> 24;
+    temp[1] = erpm >> 16;
+    temp[2] = erpm >> 8;
+    temp[3] = erpm;
+    Send_CAN_1(SetERPM_ID, temp, 4);
 }
 
 /**
@@ -557,13 +510,13 @@ void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
  * @param digitaloutput4 The fourth digital output value to set.
  */
 /*
-void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitaloutput3, bool digitaloutput4) {
-    SetDigitalOutput[0] = digitaloutput1;
-    SetDigitalOutput[1] = digitaloutput2;
-    SetDigitalOutput[2] = digitaloutput3;
-    SetDigitalOutput[3] = digitaloutput4;
-    Send_CAN_1(SetDigitalOutput_ID, SetDigitalOutput, 4);
-}*/
+ void setSetDigitalOutput(bool digitaloutput1, bool digitaloutput2, bool digitaloutput3, bool digitaloutput4) {
+     SetDigitalOutput[0] = digitaloutput1;
+     SetDigitalOutput[1] = digitaloutput2;
+     SetDigitalOutput[2] = digitaloutput3;
+     SetDigitalOutput[3] = digitaloutput4;
+     Send_CAN_1(SetDigitalOutput_ID, SetDigitalOutput, 4);
+ }*/
 /**
  * This value determines the maximum allowable drive current on
  * the AC side. With this function you are able maximize the
@@ -635,11 +588,10 @@ void setDriveEnable(bool driveenable) {
     DriveEnable[0] = driveenable;
     Send_CAN_1(DriveEnable_ID, DriveEnable, 1);
 }
-
 void SendID_20(void) {
     static uint8_t id = 0x20;
-    message_CAN_TX[0] = APPS_percent;    // APPS_percent 0-100%
-    message_CAN_TX[1] = Brake_Pressure;  // Brake_Pressure 0-50
+    message_CAN_TX[0] = APPS_Percentage;  // APPS_percent 0-100%
+    message_CAN_TX[1] = Brake_Pressure;   // Brake_Pressure 0-50
     // Target_Power byte 2,3 and 4
     message_CAN_TX[2] = (Target_Power >> 16) & 0xFF;
     message_CAN_TX[3] = (Target_Power >> 8) & 0xFF;
@@ -699,8 +651,8 @@ void SendID_420(void) {  // for debugging
     message_CAN_TX[1] = ADC[0];
     message_CAN_TX[2] = ADC[3] >> 8;
     message_CAN_TX[3] = ADC[3];
-    message_CAN_TX[4] = APPS_percent;
-    message_CAN_TX[5] = apps_error;
+    message_CAN_TX[4] = APPS_Percentage;
+    message_CAN_TX[5] = APPS_Error;
     message_CAN_TX[6] = 0;
     message_CAN_TX[7] = 0;
     Send_CAN_1(id, message_CAN_TX, 8);
@@ -729,7 +681,10 @@ void PrintToConsole(uint8_t time) {
     // Print data-----
     currentMillis[3] = millis();
     if (currentMillis[3] - previousMillis[3] >= time) {
-        printf("APPS1 %d APPS2 %d APPS_percent %.02f APPS_error %d APPS_1000 %d CAN_status %d CanRX_ON %d CanTX_ON %d \r\n", ADC[0], ADC[3], APPS_percent, apps_error, APPS_1000, status1, CANRX1_ON, CANTX1_ON);
+        // APPS_PrintValues();
+        printf("APPSA%dAPPSB%dAPPST%dAPPS_ERROR%dAPPS_Perc%dCAN_ERROR%d", ADC[0], ADC[3], APPS_Mean, APPS_Error, APPS_Percentage, status1);
+        printf("APPS_MIN%dAPPS_MAX%dAPPS_TOL%d", APPS_MIN_bits, APPS_MAX_bits, APPS_Tolerance_bits);
+        printf("\r\n");
         previousMillis[3] = currentMillis[3];
     }
 }

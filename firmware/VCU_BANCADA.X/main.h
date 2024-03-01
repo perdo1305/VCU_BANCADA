@@ -4,19 +4,22 @@
  *
  * Created on 19 de Fevereiro de 2024, 19:02
  */
-#include <stdbool.h>  // Defines true
-#include <stddef.h>   // Defines NULL
-#include <stdlib.h>   // Defines EXIT_FAILURE
 
-#include "definitions.h"  // SYS function prototypes
 
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "APPS.h"
+#include <stdbool.h>  // Defines true
+#include <stddef.h>   // Defines NULL
+#include <stdint.h>
+#include <stdlib.h>  // Defines EXIT_FAILURE
+#include "definitions.h"  // SYS function prototypes
+
 // Inverter CAN IDs
 #define SetCurrent_ID 0x01                                   // byte 0-1
 #define SetBrakeCurrent_ID 0x02                              // byte 0-1
-#define SetERPM_ID 0x03                                      // byte 0-3
+#define SetERPM_ID 0x394                                      // byte 0-3
 #define SetPosition_ID 0x04                                  // byte 0-1
 #define SetRelativeCurrent_ID 0x05                           // byte 0-1
 #define SetRelativeBrakeCurrent_ID 0x06                      // byte 0-1
@@ -30,19 +33,20 @@
 #define ACDCcurrentControllerMotorTemperatureFaults_ID 0x0E  // byte 0-7
 #define ThrottleBrakeDigitalInput1_2_3_4_ID 0x0F             // byte 0-3
 
+
 // CAN Messages to send to Inverter
-int8_t SetCurrent[2] = {0, 0};
-int8_t SetBrakeCurrent[2] = {0, 0};
-int8_t SetERPM[4] = {0, 0, 0, 0};
-int8_t SetPosition[2] = {0, 0};
-int8_t SetRelativeCurrent[2] = {0, 0};
-int8_t SetRelativeBrakeCurrent[2] = {0, 0};
-int8_t SetDigitalOutput[4] = {0, 0, 0, 0};
-int8_t SetMaxACCurrent[2] = {0, 0};
-int8_t SetMaxACBrakeCurrent[2] = {0, 0};
-int8_t SetMaxDCCurrent[2] = {0, 0};
-int8_t SetMaxDCBrakeCurrent[2] = {0, 0};
-int8_t DriveEnable[1] = {0};
+uint8_t SetCurrent[2] = {0, 0};
+uint8_t SetBrakeCurrent[2] = {0, 0};
+uint8_t SetERPM[4] = {0, 0, 0, 0};
+uint8_t SetPosition[2] = {0, 0};
+uint8_t SetRelativeCurrent[2] = {0, 0};
+uint8_t SetRelativeBrakeCurrent[2] = {0, 0};
+uint8_t SetDigitalOutput[4] = {0, 0, 0, 0};
+uint8_t SetMaxACCurrent[2] = {0, 0};
+uint8_t SetMaxACBrakeCurrent[2] = {0, 0};
+uint8_t SetMaxDCCurrent[2] = {0, 0};
+uint8_t SetMaxDCBrakeCurrent[2] = {0, 0};
+uint8_t DriveEnable[1] = {0};
 
 // CAN Messages to receive from Inverter
 int32_t ERPM = 0;                  // Electrical RPM Equation: ERPM = Motor RPM * number of the motor pole pairs
@@ -88,7 +92,7 @@ bool PowerLimit = 0;               // 0-1
 
 // ############# CAN VARS ###################################
 /* ID 0x20 */
-// uint8_t Throttle = 0;     // 0-100   |Byte 0
+uint8_t Throttle = 0;        // 0-100   |Byte 0
 uint8_t Brake_Pressure = 0;  // 0-50    |Byte 1
 uint32_t Target_Power = 0;   // 0-85000 |Byte 2-4
 uint32_t Current_Power = 0;  // 0-85000 |Byte 5-7

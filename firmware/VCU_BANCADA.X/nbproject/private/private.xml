@@ -3,9 +3,10 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/pedro/Documents/git/VCU_BANCADA/firmware/VCU_BANCADA.X/main.h</file>
+            <file>file:/C:/Users/pedro/Documents/git/VCU_BANCADA/firmware/VCU_BANCADA.X/utils.h</file>
             <file>file:/C:/Users/pedro/Documents/git/VCU_BANCADA/firmware/src/main.c</file>
             <file>file:/C:/Users/pedro/Documents/git/VCU_BANCADA/firmware/VCU_BANCADA.X/APPS.c</file>
+            <file>file:/C:/Users/pedro/Documents/git/VCU_BANCADA/firmware/src/config/default/peripheral/uart/plib_uart1.c</file>
             <file>file:/C:/Users/pedro/Documents/git/VCU_BANCADA/firmware/VCU_BANCADA.X/APPS.h</file>
         </group>
     </open-files>
