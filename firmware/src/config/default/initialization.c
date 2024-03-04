@@ -186,18 +186,18 @@ void SYS_Initialize ( void* data )
 
 
 
-	  GPIO_Initialize();
+	GPIO_Initialize();
 
     CAN1_Initialize();
 
+    CORETIMER_Initialize();
     TMR6_Initialize();
 
-    CORETIMER_Initialize();
     ADCHS_Initialize();
 
-	  UART1_Initialize();
-
     TMR4_Initialize();
+
+	UART1_Initialize();
 
     TMR5_Initialize();
 

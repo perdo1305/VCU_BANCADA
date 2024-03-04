@@ -93,6 +93,8 @@ unsigned int millis() {
     return (unsigned int)(CORETIMER_CounterGet() / (CORE_TIMER_FREQUENCY / 1000));
 }
 
+uint16_t VCU_Temp = 0;
+
 // ############# FUNCTIONS ##################################
 void Read_ADC(ADCHS_CHANNEL_NUM channel);            // Read ADC function
 bool APPS_Function(uint16_t APPS1, uint16_t APPS2);  // APPS function to calculate average and percentage
@@ -106,6 +108,7 @@ void Send_CAN_3(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 3 fun
 
 void startupSequence(void);    // Startup sequence
 void PrintToConsole(uint8_t);  // Print data to console
+void ReadTEMP(void);           // Read temperature
 
 // ############# TMR FUNCTIONS ###############################
 void TMR1_5ms(uint32_t status, uintptr_t context) {  // 200Hz
@@ -124,6 +127,7 @@ void TMR2_100ms(uint32_t status, uintptr_t context) {  // 10Hz
 
 void TMR4_500ms(uint32_t status, uintptr_t context) {  // 2Hz
     GPIO_RC11_Toggle();                                // Heartbeat led
+    
 }
 
 void TMR5_100ms(uint32_t status, uintptr_t context) {
@@ -174,7 +178,8 @@ int main(void) {
 
     ADCHS_CallbackRegister(ADCHS_CH0, ADCHS_CH0_Callback, (uintptr_t)NULL);  // APPS1 callback
     ADCHS_CallbackRegister(ADCHS_CH3, ADCHS_CH3_Callback, (uintptr_t)NULL);  // APPS2 callback
-
+    CTMUCONbits.TGEN = 0;
+    ADCHS_ChannelConversionStart(ADCHS_CH53);
     TMR1_CallbackRegister(TMR1_5ms, (uintptr_t)NULL);    // 200Hz
     TMR2_CallbackRegister(TMR2_100ms, (uintptr_t)NULL);  // 10Hz
     TMR4_CallbackRegister(TMR4_500ms, (uintptr_t)NULL);  // 2Hz heartbeat led
@@ -243,30 +248,19 @@ int main(void) {
         //  Read_CAN_3();  // Read AutonomousBus
 
         if (UART1_ReceiverIsReady()) {
-            uint8_t data = UART1_ReadByte();
-            switch (data) {
-                case 48:
+            // read until gets a \0
 
-                    if (UART1_ReceiverIsReady()) {
-                        uint8_t buffer[8];
-                        int buffer_size = 8;
-                        UART1_Read(buffer, buffer_size);
+            uint8_t data2[8];
+            UART1_Read(data2, 8);
+            // TODO need to do a little protection on this
+            float apps_min = ((data2[0] << 8) | data2[1]) / 10;
+            float apps_max = (data2[2] << 8) | data2[3] / 10;
+            float apps_error = (data2[4] << 8) | data2[5] / 10;
 
-                        float apps_tol= ((buffer[0] << 8) | buffer[1]) / 10;
-                        float apps_max= ((buffer[2] << 8) | buffer[3]) / 10;
-                        float apps_min= ((buffer[4] << 8) | buffer[5]) / 10;
-
-                        APPS_Init(apps_min,apps_max ,apps_tol);
-                        data = 0;
-                    }
-                    break;
-
-                default:
-                    break;
-            }
+            APPS_Init(apps_min, apps_max, apps_error);
         }
-
-        PrintToConsole(200);  // Print data to console time in ms
+        ReadTEMP();
+        PrintToConsole(33);  // Print data to console time in ms
     }
     /* Execution should not come here during normal operation */
     return (EXIT_FAILURE);
@@ -684,7 +678,23 @@ void PrintToConsole(uint8_t time) {
         // APPS_PrintValues();
         printf("APPSA%dAPPSB%dAPPST%dAPPS_ERROR%dAPPS_Perc%dCAN_ERROR%d", ADC[0], ADC[3], APPS_Mean, APPS_Error, APPS_Percentage, status1);
         printf("APPS_MIN%dAPPS_MAX%dAPPS_TOL%d", APPS_MIN_bits, APPS_MAX_bits, APPS_Tolerance_bits);
+        printf("VCU_TEMP%d", VCU_Temp);
         printf("\r\n");
+
+        // printf("\r\n");
         previousMillis[3] = currentMillis[3];
+    }
+}
+
+void ReadTEMP() {
+    currentMillis[4] = millis();
+    if (currentMillis[4] - previousMillis[4] >= 500) {
+        if (CTMUCONbits.EDG1STAT == CTMUCONbits.EDG1STAT) {
+            if (ADCHS_ChannelResultIsReady(ADCHS_CH53)) {
+                VCU_Temp = ADCHS_ChannelResultGet(ADCHS_CH53);
+            }
+            ADCHS_ChannelConversionStart(ADCHS_CH53);
+            previousMillis[4] = currentMillis[4];
+        }
     }
 }
