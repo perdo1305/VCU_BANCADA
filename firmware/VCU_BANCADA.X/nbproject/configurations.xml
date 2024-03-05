@@ -111,6 +111,7 @@
       </logicalFolder>
       <itemPath>../src/main.c</itemPath>
       <itemPath>APPS.c</itemPath>
+      <itemPath>CAN_utils.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"

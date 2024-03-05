@@ -54,31 +54,6 @@
 #define labview_printf(fmt, ...)
 #endif
 
-// ############# RX CAN FRAME ###############################
-
-CANFD_MSG_RX_ATTRIBUTE msgAttr = CANFD_MSG_RX_DATA_FRAME;  // RX message attribute
-
-static uint8_t rx_message[64] = {};  // CAN message receive buffer
-uint32_t rx_messageID = 0;           // RX message ID
-uint8_t rx_messageLength = 0;        // RX message length
-
-uint32_t status1 = 0;  // CAN status
-uint32_t status2 = 0;  // CAN status
-uint32_t status3 = 0;  // CAN status
-
-bool CANRX1_ON = 0;  // flag to check if CAN is receiving
-bool CANTX1_ON = 0;  // flag to check if CAN is transmitting
-
-bool CANRX2_ON = 0;  // flag to check if CAN is receiving
-bool CANTX2_ON = 0;  // flag to check if CAN is transmitting
-
-bool CANRX3_ON = 0;  // flag to check if CAN is receiving
-bool CANTX3_ON = 0;  // flag to check if CAN is transmitting
-
-// ############# TX CAN FRAME ###############################
-uint8_t message_CAN_TX[8] = {};  // TX message buffer
-uint8_t cantx_message[8] = {};   // TX message buffer
-
 // ############# ADC ########################################
 
 uint8_t message_ADC[64];      // CAN message to send ADC data
@@ -98,13 +73,6 @@ uint16_t VCU_Temp = 0;
 // ############# FUNCTIONS ##################################
 void Read_ADC(ADCHS_CHANNEL_NUM channel);            // Read ADC function
 bool APPS_Function(uint16_t APPS1, uint16_t APPS2);  // APPS function to calculate average and percentage
-
-void Read_CAN_1(void);                                         // Read CAN 1 function
-void Send_CAN_1(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 1 function
-void Read_CAN_2(void);                                         // Read CAN 2 function
-void Send_CAN_2(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 2 function
-void Read_CAN_3(void);                                         // Read CAN 3 function
-void Send_CAN_3(uint32_t id, uint8_t* message, uint8_t size);  // Send CAN 3 function
 
 void startupSequence(void);    // Startup sequence
 void PrintToConsole(uint8_t);  // Print data to console
@@ -127,7 +95,6 @@ void TMR2_100ms(uint32_t status, uintptr_t context) {  // 10Hz
 
 void TMR4_500ms(uint32_t status, uintptr_t context) {  // 2Hz
     GPIO_RC11_Toggle();                                // Heartbeat led
-    
 }
 
 void TMR5_100ms(uint32_t status, uintptr_t context) {
@@ -173,8 +140,6 @@ void ADCHS_CH3_Callback(ADCHS_CHANNEL_NUM channel, uintptr_t context) {
 int main(void) {
     /* Initialize all modules */
     SYS_Initialize(NULL);
-    // GPIO_RC2_Set();
-    // GPIO_RC11_Set();
 
     ADCHS_CallbackRegister(ADCHS_CH0, ADCHS_CH0_Callback, (uintptr_t)NULL);  // APPS1 callback
     ADCHS_CallbackRegister(ADCHS_CH3, ADCHS_CH3_Callback, (uintptr_t)NULL);  // APPS2 callback
@@ -185,34 +150,12 @@ int main(void) {
     TMR4_CallbackRegister(TMR4_500ms, (uintptr_t)NULL);  // 2Hz heartbeat led
     TMR5_CallbackRegister(TMR5_100ms, (uintptr_t)NULL);  // 10Hz
     TMR6_CallbackRegister(TMR6_5ms, (uintptr_t)NULL);    // 200Hz to send data to the inverter
-                                                         /*
-                                                             printf("�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??\r\n");
-                                                             printf("�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??\r\n");
-                                                             printf("�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??\r\n");
-                                                             printf("�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??\r\n");
-                                                             printf("�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??\r\n");
-                                                             printf("�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??�??\r\n");
-                                                             printf("\n\n");
-                                                            fflush(stdout);
-                                                        */
 
-    // config inverter
-    // setSetCurrent(20);
-    // setSetBrakeCurrent(30);
-    // setSetERPM(40);
-    // setSetPosition(50);
-    // setSetRelativeCurrent(21);
-    // setSetRelativeBrakeCurrent(1);
-    // setSetDigitalOutput(0, 1, 2, 3);
-    // setSetMaxACCurrent(5);
-    // setSetMaxACBrakeCurrent(4);
-    // setSetMaxDCCurrent(4);
-    // setSetMaxDCBrakeCurrent(5);
-    // setDriveEnable(1);  // Enable the inverter
+    fflush(stdout);
 
-    // TMR1_Start();
+    TMR1_Start();
     CORETIMER_DelayMs(5);
-    // TMR2_Start();
+    TMR2_Start();
     CORETIMER_DelayMs(5);
     TMR3_Start();  // Used trigger source for ADC conversion
     CORETIMER_DelayMs(5);
@@ -222,18 +165,6 @@ int main(void) {
     CORETIMER_DelayMs(5);
     TMR6_Start();
     CORETIMER_DelayMs(5);
-
-    // setSetDriveEnable(0);
-
-    // setSetBrakeCurrent(0);
-    // setSetPosition(0);
-    // setSetRelativeCurrent(0);
-    // setSetRelativeBrakeCurrent(0);
-    // setSetMaxACCurrent(0);
-    // setSetMaxACBrakeCurrent(0);
-    // setSetMaxDCCurrent(0);
-    // setSetMaxDCBrakeCurrent(0);
-    // setSetDigitalOutput(1, 0, 0, 0);
 
     APPS_Init(0.3, 3.0, 0.2);  // Initialize APPS
 
@@ -266,128 +197,7 @@ int main(void) {
     return (EXIT_FAILURE);
 }
 
-void Read_CAN_1() {
-    status1 = CAN1_ErrorGet();
-    // printf("Status: %d\r\n", status);
 
-    if (status1 == CANFD_ERROR_NONE) {
-        memset(rx_message, 0x00, sizeof(rx_message));
-        if (CAN1_MessageReceive(&rx_messageID, &rx_messageLength, rx_message, 0, 2, &msgAttr)) {
-            /*
-            printf(" New Message Received    \r\n");
-            uint8_t length = rx_messageLength;
-            printf("ID: 0x%x Len: 0x%x ", (unsigned int)rx_messageID, (unsigned int)rx_messageLength);
-            printf("Msg: ");
-
-            while (length) {
-                printf("%d ", rx_message[rx_messageLength - length--]);
-            }
-            printf("\r\n");
-             */
-
-            CANRX1_ON = 1;
-            GPIO_RC2_Toggle();
-        }
-    } else {
-        GPIO_RC2_Clear();
-        CANRX1_ON = 0;
-    }
-}
-
-void Send_CAN_1(uint32_t id, uint8_t* message, uint8_t size) {
-    if (CAN1_TxFIFOQueueIsFull(0)) {
-        // debug_printf("CAN1_TxFIFOQueueIsFull\r\n");
-        CANTX1_ON = 0;
-    } else {
-        if (CAN1_MessageTransmit(id, size, message, 0, CANFD_MODE_NORMAL, CANFD_MSG_TX_DATA_FRAME)) {
-            // debug_printf("id 0x%x sent successfully \r\n", id);
-            //   debug_printf("ID: 0x%x Len: 0x%x DATA:", (unsigned int)id, (unsigned int)size);
-            // for (int i = 0; i < size; i++) {s
-            //  debug_printf("%d ", message[i]);
-            //}
-            // debug_printf("\r\n");
-            //  GPIO_RC2_Toggle();
-            CANTX1_ON = 1;
-        } else {
-            // debug_printf("id 0x%x not sent\r\n", id);
-            CANTX1_ON = 0;
-        }
-    }
-}
-/*
-void Read_CAN_2() {
-    status2 = CAN2_ErrorGet();
-    if (status2 == CANFD_ERROR_NONE) {
-        memset(rx_message, 0x00, sizeof(rx_message));
-        if (CAN2_MessageReceive(&rx_messageID, &rx_messageLength, rx_message, 0, 2, &msgAttr)) {
-            CANRX2_ON = 1;
-
-            //TODO : Add the rest of the cases
-            switch (rx_messageID) {
-                case ERPMDutyCycleInputVoltage_ID:
-                    ERPM = (rx_message[0] << 8) | rx_message[1];
-                    DutyCycle = (rx_message[2] << 8) | rx_message[3];
-                    InputVoltage = (rx_message[4] << 8) | rx_message[5];
-                    break;
-                case ACDCcurrentControllerMotorTemperatureFaults_ID:
-                    ACcurrent = (rx_message[0] << 8) | rx_message[1];
-                    DCcurrent = (rx_message[2] << 8) | rx_message[3];
-                    ControllerTemperature = (rx_message[4] << 8) | rx_message[5];
-                    MotorTemperature = (rx_message[6] << 8) | rx_message[7];
-                    break;
-                case ThrottleBrakeDigitalInput1_2_3_4_ID:
-                    ThrottleSignal = rx_message[0];
-                    BrakeSignal = rx_message[1];
-                    DigitalInput1 = rx_message[2];
-                    DigitalInput2 = rx_message[3];
-                    DigitalInput3 = rx_message[4];
-                    DigitalInput4 = rx_message[5];
-                    break;
-                default:
-                    break;
-            }
-        }
-    } else {
-        CANRX2_ON = 0;
-    }
-}
-
-void Send_CAN_2(uint32_t id, uint8_t* message, uint8_t size) {
-    if (CAN2_TxFIFOQueueIsFull(0)) {
-        CANTX2_ON = 0;
-    } else {
-        if (CAN2_MessageTransmit(id, size, message, 0, CANFD_MODE_NORMAL, CANFD_MSG_TX_DATA_FRAME)) {
-            CANTX2_ON = 1;
-        } else {
-            CANTX2_ON = 0;
-        }
-    }
-}
-
-void Read_CAN_3() {
-    status3 = CAN3_ErrorGet();
-    if (status3 == CANFD_ERROR_NONE) {
-        memset(rx_message, 0x00, sizeof(rx_message));
-        if (CAN3_MessageReceive(&rx_messageID, &rx_messageLength, rx_message, 0, 2, &msgAttr)) {
-            CANRX3_ON = 1;
-        }
-    } else {
-        CANRX3_ON = 0;
-    }
-}
-
-void Send_CAN_3(uint32_t id, uint8_t* message, uint8_t size) {
-    if (CAN3_TxFIFOQueueIsFull(0)) {
-        CANTX3_ON = 0;
-    } else {
-        if (CAN3_MessageTransmit(id, size, message, 0, CANFD_MODE_NORMAL, CANFD_MSG_TX_DATA_FRAME)) {
-            CANTX3_ON = 1;
-        } else {
-            CANTX3_ON = 0;
-        }
-    }
-}
-*/
 
 /**
  * This command sets the target motor AC current (peak, not
@@ -653,7 +463,7 @@ void SendID_420(void) {  // for debugging
 }
 
 void startupSequence() {
-    // Start up sequence
+    /*LEDs Start up sequence*/
     GPIO_RC11_Set();
     CORETIMER_DelayMs(75);
     GPIO_RC2_Set();
