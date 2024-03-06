@@ -1,3 +1,6 @@
 [submodule "Can-Header-Map"]
 	path = Can-Header-Map
 	url = https://github.com/FSLART/Can-Header-Map
+[submodule "firmware/VCU_BANCADA.X/Can-Header-Map"]
+	path = firmware/VCU_BANCADA.X/Can-Header-Map
+	url = https://github.com/FSLART/Can-Header-Map
