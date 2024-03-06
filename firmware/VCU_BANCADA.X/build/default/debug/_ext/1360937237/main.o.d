@@ -21,7 +21,16 @@ build/default/debug/_ext/1360937237/main.o: ../src/main.c \
  ../src/config/default/peripheral/tmr/plib_tmr3.h \
  ../src/config/default/peripheral/tmr1/plib_tmr1.h \
  ../src/config/default/peripheral/tmr1/plib_tmr1_common.h \
- ../src/../VCU_BANCADA.X/utils.h
+ ../src/../../../CANSART/Controller\ Library/PIC32/Library/cansart.h \
+ ../src/../../../CANSART/Controller\ Library/PIC32/Library/cansartP.h \
+ ../src/../../../CANSART/Controller\ Library/PIC32/Library/cansart.h \
+ ../src/../../../CANSART/Controller\ Library/PIC32/Library/driver.h \
+ c:\users\pedro\documents\git\vcu_bancada\firmware\vcu_bancada.x\cansart_db_lc.h \
+ ../src/../VCU_BANCADA.X/CAN_utils.h \
+ ../src/../VCU_BANCADA.X/Can-Header-Map/CAN_asdb.h \
+ ../src/../VCU_BANCADA.X/Can-Header-Map/CAN_datadb.h \
+ ../src/../VCU_BANCADA.X/Can-Header-Map/CAN_pwtdb.h \
+ ../src/../VCU_BANCADA.X/cansart_db_lc.h ../src/../VCU_BANCADA.X/utils.h
 
 ../src/../VCU_BANCADA.X/main.h:
 
@@ -68,5 +77,25 @@ build/default/debug/_ext/1360937237/main.o: ../src/main.c \
 ../src/config/default/peripheral/tmr1/plib_tmr1.h:
 
 ../src/config/default/peripheral/tmr1/plib_tmr1_common.h:
+
+../src/../../../CANSART/Controller\ Library/PIC32/Library/cansart.h:
+
+../src/../../../CANSART/Controller\ Library/PIC32/Library/cansartP.h:
+
+../src/../../../CANSART/Controller\ Library/PIC32/Library/cansart.h:
+
+../src/../../../CANSART/Controller\ Library/PIC32/Library/driver.h:
+
+c:\users\pedro\documents\git\vcu_bancada\firmware\vcu_bancada.x\cansart_db_lc.h:
+
+../src/../VCU_BANCADA.X/CAN_utils.h:
+
+../src/../VCU_BANCADA.X/Can-Header-Map/CAN_asdb.h:
+
+../src/../VCU_BANCADA.X/Can-Header-Map/CAN_datadb.h:
+
+../src/../VCU_BANCADA.X/Can-Header-Map/CAN_pwtdb.h:
+
+../src/../VCU_BANCADA.X/cansart_db_lc.h:
 
 ../src/../VCU_BANCADA.X/utils.h:

@@ -28,13 +28,77 @@
 #include <stddef.h>   // Defines NULL
 #include <stdlib.h>   // Defines EXIT_FAILURE
 
+#include "../../../CANSART/Controller Library/PIC32/Library/cansart.h"
+#include "../VCU_BANCADA.X/CAN_utils.h"
+#include "../VCU_BANCADA.X/cansart_db_lc.h"
 #include "../VCU_BANCADA.X/utils.h"
-#include "definitions.h"  // SYS function prototypes
-// *****************************************************************************
-// *****************************************************************************
-// Section: Main Entry Point
-// *****************************************************************************
-// *****************************************************************************
+
+struct frame10 frames10;
+
+uint32_t status1;
+// uint32_t status1 = 0;
+//  CAN Messages to send to Inverter
+uint8_t SetCurrent[2] = {0, 0};
+uint8_t SetBrakeCurrent[2] = {0, 0};
+uint8_t SetERPM[4] = {0, 0, 0, 0};
+uint8_t SetPosition[2] = {0, 0};
+uint8_t SetRelativeCurrent[2] = {0, 0};
+uint8_t SetRelativeBrakeCurrent[2] = {0, 0};
+uint8_t SetDigitalOutput[4] = {0, 0, 0, 0};
+uint8_t SetMaxACCurrent[2] = {0, 0};
+uint8_t SetMaxACBrakeCurrent[2] = {0, 0};
+uint8_t SetMaxDCCurrent[2] = {0, 0};
+uint8_t SetMaxDCBrakeCurrent[2] = {0, 0};
+uint8_t DriveEnable[1] = {0};
+
+// CAN Messages to receive from Inverter
+int32_t ERPM = 0; // Electrical RPM Equation: ERPM = Motor RPM * number of the motor pole pairs
+int16_t DutyCycle = 0; // The controller duty cycle. The sign of this value will represent whether the motor is running(positive) current or regenerating (negative) current
+int16_t InputVoltage = 0; // Input voltage is the DC voltage
+int16_t ACcurrent = 0; // The motor current. The sign of this value represents whether the motor is running(positive) current or regenerating (negative) current
+int16_t DCcurrent = 0; // DC Current: Current on DC side. The sign of this value represents whether the motor is running(positive) current or regenerating (negative) current.
+int8_t ControllerTemperature = 0; // Temperature of the inverter semiconductors
+int16_t MotorTemperature = 0; // Temperature of the motor measured by the inverter
+int8_t Faults = 0; // 0x00 : NO FAULTS
+// 0x01 : Overvoltage - The input voltage is higher than the set maximum.
+// 0x02 : Undervoltage - The input voltage is lower than the set minimum.
+// 0x03 : DRV - Transistor or transistor drive error
+// 0x04 : ABS. Overcurrent - The AC current is higher than the set absolute maximum current.
+// 0x05 : CTLR Overtemp. - The controller temperature is higher than the set maximum.
+// 0x06 : Motor Overtemp. - The motor temperature is higher than the set maximum.
+// 0x07 : Sensor wire fault - Something went wrong with the sensor differential signals.
+// 0x08 : Sensor general fault - An error occurred while processing the sensor signals
+// 0x09 : CAN Command error - CAN message received contains parameter out of boundaries
+// 0x0A : Analog input error  Redundant output out of range
+int8_t ThrottleSignal = 0; // Throttle signal derived from analog inputs or CAN2
+int8_t BrakeSignal = 0; // Brake signal derived from analog inputs or CAN2
+bool DigitalInput1 = 0; // 0-1
+bool DigitalInput2 = 0; // 0-1
+bool DigitalInput3 = 0; // 0-1
+bool DigitalInput4 = 0; // 0-1
+bool DigitalOutput1 = 0; // 0-1
+bool DigitalOutput2 = 0; // 0-1
+bool DigitalOutput3 = 0; // 0-1
+bool DigitalOutput4 = 0; // 0-1
+bool DriveEnabled = 0; // 0-1
+bool CapacitorTempLimit = 0; // 0-1
+bool DCcurrentLimit = 0; // 0-1
+bool DriveEnableLimit = 0; // 0-1
+bool IGBTAccelLimit = 0; // 0-1
+bool IGBTTempLimit = 0; // 0-1
+bool InputVoltageLimit = 0; // 0-1
+bool MotorAccelLimit = 0; // 0-1
+bool MotorTempLimit = 0; // 0-1
+bool RPMMinLimit = 0; // 0-1
+bool RPMMaxLimit = 0; // 0-1
+bool PowerLimit = 0; // 0-1
+
+// #include "definitions.h"  // SYS function prototypes
+//  *****************************************************************************
+//  *****************************************************************************
+//  Section: Main Entry Point
+//  *****************************************************************************
+//  *****************************************************************************
 
 // Define a macro DEBUG para ativar ou desativar o debug_printf
 #define DEBUG 0
@@ -56,8 +120,8 @@
 
 // ############# ADC ########################################
 
-uint8_t message_ADC[64];      // CAN message to send ADC data
-__COHERENT uint16_t ADC[64];  // ADC raw data
+uint8_t message_ADC[64]; // CAN message to send ADC data
+__COHERENT uint16_t ADC[64]; // ADC raw data
 
 // ############# MILIS #######################################
 unsigned int previousMillis[10] = {};
@@ -65,41 +129,43 @@ unsigned int currentMillis[10] = {};
 // ############# MILIS #######################################
 
 unsigned int millis() {
-    return (unsigned int)(CORETIMER_CounterGet() / (CORE_TIMER_FREQUENCY / 1000));
+    return (unsigned int) (CORETIMER_CounterGet() / (CORE_TIMER_FREQUENCY / 1000));
 }
 
 uint16_t VCU_Temp = 0;
 
 // ############# FUNCTIONS ##################################
-void Read_ADC(ADCHS_CHANNEL_NUM channel);            // Read ADC function
-bool APPS_Function(uint16_t APPS1, uint16_t APPS2);  // APPS function to calculate average and percentage
+void Read_ADC(ADCHS_CHANNEL_NUM channel); // Read ADC function
+bool APPS_Function(uint16_t APPS1, uint16_t APPS2); // APPS function to calculate average and percentage
 
-void startupSequence(void);    // Startup sequence
-void PrintToConsole(uint8_t);  // Print data to console
-void ReadTEMP(void);           // Read temperature
+void startupSequence(void); // Startup sequence
+void PrintToConsole(uint8_t); // Print data to console
+void ReadTEMP(void); // Read temperature
 
 // ############# TMR FUNCTIONS ###############################
-void TMR1_5ms(uint32_t status, uintptr_t context) {  // 200Hz
+
+void TMR1_5ms(uint32_t status, uintptr_t context) { // 200Hz
     // memset(message_CAN_TX, 0, sizeof(message_CAN_TX));
     // SendID_20();  // send data to ID 0x20 in DataBus
     // memset(message_CAN_TX, 0, sizeof(message_CAN_TX));
     // SendID_23();  // send data to ID 0x23 in DataBus
 }
 
-void TMR2_100ms(uint32_t status, uintptr_t context) {  // 10Hz
+void TMR2_100ms(uint32_t status, uintptr_t context) { // 10Hz
     // memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
     // SendID_21();  // send data to ID 0x21 in DataBus
     // memset(message_CAN_TX, 0x00, sizeof(message_CAN_TX));
     // SendID_22();  // send data to ID 0x22 in DataBus
 }
 
-void TMR4_500ms(uint32_t status, uintptr_t context) {  // 2Hz
-    GPIO_RC11_Toggle();                                // Heartbeat led
+void TMR4_500ms(uint32_t status, uintptr_t context) { // 2Hz
+    GPIO_RC11_Toggle(); // Heartbeat led
 }
 
 void TMR5_100ms(uint32_t status, uintptr_t context) {
     // apps_error = APPS_Function(ADC[0], ADC[3]);  // checks if there is an error in the APPS and calculates the average and percentage
 }
+
 void TMR6_5ms(uint32_t status, uintptr_t context) {
     APPS_Function(ADC[0], ADC[3]);
     // setSetERPM(250 * APPS_Percentage);  // Send APPS_percent to inverter
@@ -109,6 +175,7 @@ void TMR6_5ms(uint32_t status, uintptr_t context) {
 }
 
 // ############# ADC CALLBACKS ###############################
+
 void ADCHS_CH0_Callback(ADCHS_CHANNEL_NUM channel, uintptr_t context) {
     static int samples[4] = {0};
     static int i = 0;
@@ -141,15 +208,15 @@ int main(void) {
     /* Initialize all modules */
     SYS_Initialize(NULL);
 
-    ADCHS_CallbackRegister(ADCHS_CH0, ADCHS_CH0_Callback, (uintptr_t)NULL);  // APPS1 callback
-    ADCHS_CallbackRegister(ADCHS_CH3, ADCHS_CH3_Callback, (uintptr_t)NULL);  // APPS2 callback
+    ADCHS_CallbackRegister(ADCHS_CH0, ADCHS_CH0_Callback, (uintptr_t) NULL); // APPS1 callback
+    ADCHS_CallbackRegister(ADCHS_CH3, ADCHS_CH3_Callback, (uintptr_t) NULL); // APPS2 callback
     CTMUCONbits.TGEN = 0;
     ADCHS_ChannelConversionStart(ADCHS_CH53);
-    TMR1_CallbackRegister(TMR1_5ms, (uintptr_t)NULL);    // 200Hz
-    TMR2_CallbackRegister(TMR2_100ms, (uintptr_t)NULL);  // 10Hz
-    TMR4_CallbackRegister(TMR4_500ms, (uintptr_t)NULL);  // 2Hz heartbeat led
-    TMR5_CallbackRegister(TMR5_100ms, (uintptr_t)NULL);  // 10Hz
-    TMR6_CallbackRegister(TMR6_5ms, (uintptr_t)NULL);    // 200Hz to send data to the inverter
+    TMR1_CallbackRegister(TMR1_5ms, (uintptr_t) NULL); // 200Hz
+    TMR2_CallbackRegister(TMR2_100ms, (uintptr_t) NULL); // 10Hz
+    TMR4_CallbackRegister(TMR4_500ms, (uintptr_t) NULL); // 2Hz heartbeat led
+    TMR5_CallbackRegister(TMR5_100ms, (uintptr_t) NULL); // 10Hz
+    TMR6_CallbackRegister(TMR6_5ms, (uintptr_t) NULL); // 200Hz to send data to the inverter
 
     fflush(stdout);
 
@@ -157,7 +224,7 @@ int main(void) {
     CORETIMER_DelayMs(5);
     TMR2_Start();
     CORETIMER_DelayMs(5);
-    TMR3_Start();  // Used trigger source for ADC conversion
+    TMR3_Start(); // Used trigger source for ADC conversion
     CORETIMER_DelayMs(5);
     TMR4_Start();
     CORETIMER_DelayMs(5);
@@ -166,15 +233,20 @@ int main(void) {
     TMR6_Start();
     CORETIMER_DelayMs(5);
 
-    APPS_Init(0.3, 3.0, 0.2);  // Initialize APPS
-
-    startupSequence();  // led sequence
-
+    APPS_Init(0.3, 3.0, 0.2); // Initialize APPS
+    frames10.ID = 10;
+    frames10.LENGHT = 8;
+    startupSequence(); // led sequence
     while (true) {
         /* Maintain state machines of all polled MPLAB Harmony modules. */
         SYS_Tasks();
+        // frames10.ADC0H = ADC[0] >> 8;
+        //  frames10.ADC0L = ADC[0];
+        //  frames10.ADC3H = ADC[3] >> 8;
+        //  frames10.ADC3L = ADC[3];
 
-        Read_CAN_1();  // Read DataBus
+        updateDB(&frames10);
+        Read_CAN_BUS_1(); // Read DataBus
         //  Read_CAN_2();  // Read PowerTrainBus
         //  Read_CAN_3();  // Read AutonomousBus
 
@@ -191,13 +263,11 @@ int main(void) {
             APPS_Init(apps_min, apps_max, apps_error);
         }
         ReadTEMP();
-        PrintToConsole(33);  // Print data to console time in ms
+        PrintToConsole(33); // Print data to console time in ms
     }
     /* Execution should not come here during normal operation */
     return (EXIT_FAILURE);
 }
-
-
 
 /**
  * This command sets the target motor AC current (peak, not
@@ -215,8 +285,9 @@ void setSetCurrent(int16_t current) {
     uint8_t temp[2];
     temp[0] = current >> 8;
     temp[1] = current;
-    Send_CAN_1(SetCurrent_ID, temp, 2);
+    Send_CAN_BUS_1(SetCurrent_ID, temp, 2);
 }
+
 /**
  * Targets the brake current of the motor. It will result negative
  * torque relatively to the forward direction of the motor.
@@ -228,8 +299,9 @@ void setSetBrakeCurrent(int16_t current) {
     uint8_t temp[2];
     temp[0] = current >> 8;
     temp[1] = current;
-    Send_CAN_1(SetBrakeCurrent_ID, temp, 2);
+    Send_CAN_BUS_1(SetBrakeCurrent_ID, temp, 2);
 }
+
 /**
  * This command enables the speed control of the motor with a
  * target ERPM. This is a signed parameter, and the sign
@@ -244,7 +316,7 @@ void setSetERPM(int32_t erpm) {
     temp[1] = erpm >> 16;
     temp[2] = erpm >> 8;
     temp[3] = erpm;
-    Send_CAN_1(SetERPM_ID, temp, 4);
+    Send_CAN_BUS_1(SetERPM_ID, temp, 4);
 }
 
 /**
@@ -258,8 +330,9 @@ void setSetPosition(int16_t position) {
     position = position * 10;
     SetPosition[0] = position >> 8;
     SetPosition[1] = position;
-    Send_CAN_1(SetPosition_ID, SetPosition, 2);
+    Send_CAN_BUS_1(SetPosition_ID, SetPosition, 2);
 }
+
 /**
  * This command sets a relative AC current to the minimum and
  * maximum limits set by configuration. This achieves the same
@@ -280,7 +353,7 @@ void setSetRelativeCurrent(int16_t relativecurrent) {
     relativecurrent = relativecurrent * 10;
     SetRelativeCurrent[0] = relativecurrent >> 8;
     SetRelativeCurrent[1] = relativecurrent;
-    Send_CAN_1(SetRelativeCurrent_ID, SetRelativeCurrent, 2);
+    Send_CAN_BUS_1(SetRelativeCurrent_ID, SetRelativeCurrent, 2);
 }
 
 /**
@@ -304,7 +377,7 @@ void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
     relativebrakecurrent = relativebrakecurrent * 10;
     SetRelativeBrakeCurrent[0] = relativebrakecurrent >> 8;
     SetRelativeBrakeCurrent[1] = relativebrakecurrent;
-    Send_CAN_1(SetRelativeBrakeCurrent_ID, SetRelativeBrakeCurrent, 2);
+    Send_CAN_BUS_1(SetRelativeBrakeCurrent_ID, SetRelativeBrakeCurrent, 2);
 }
 /**
  * Sets the digital output values and sends them over CAN bus.
@@ -321,6 +394,7 @@ void setSetRelativeBrakeCurrent(int16_t relativebrakecurrent) {
      SetDigitalOutput[3] = digitaloutput4;
      Send_CAN_1(SetDigitalOutput_ID, SetDigitalOutput, 4);
  }*/
+
 /**
  * This value determines the maximum allowable drive current on
  * the AC side. With this function you are able maximize the
@@ -332,8 +406,9 @@ void setSetMaxACCurrent(int16_t maxcurrent) {
     maxcurrent = maxcurrent * 10;
     SetMaxACCurrent[0] = maxcurrent >> 8;
     SetMaxACCurrent[1] = maxcurrent;
-    Send_CAN_1(SetMaxACCurrent_ID, SetMaxACCurrent, 2);
+    Send_CAN_BUS_1(SetMaxACCurrent_ID, SetMaxACCurrent, 2);
 }
+
 /**
  * This value sets the maximum allowable brake current on the AC side.
  * This value must be multiplied by 10 before sending, only
@@ -348,8 +423,9 @@ void setSetMaxACBrakeCurrent(int16_t maxbrakecurrent) {
     maxbrakecurrent = maxbrakecurrent * 10;
     SetMaxACBrakeCurrent[0] = maxbrakecurrent >> 8;
     SetMaxACBrakeCurrent[1] = maxbrakecurrent;
-    Send_CAN_1(SetMaxACBrakeCurrent_ID, SetMaxACBrakeCurrent, 2);
+    Send_CAN_BUS_1(SetMaxACBrakeCurrent_ID, SetMaxACBrakeCurrent, 2);
 }
+
 /**
  * This value determines the maximum allowable drive current on
  * the DC side. With this command the BMS can limit the
@@ -361,8 +437,9 @@ void setSetMaxDCCurrent(int16_t maxdccurrent) {
     maxdccurrent = maxdccurrent * 10;
     SetMaxDCCurrent[0] = maxdccurrent >> 8;
     SetMaxDCCurrent[1] = maxdccurrent;
-    Send_CAN_1(SetMaxDCCurrent_ID, SetMaxDCCurrent, 2);
+    Send_CAN_BUS_1(SetMaxDCCurrent_ID, SetMaxDCCurrent, 2);
 }
+
 /**
  * This value determines the maximum allowable brake current
  * on the DC side. With this command the BMS can limit the
@@ -379,8 +456,9 @@ void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
     maxdcbrakecurrent = maxdcbrakecurrent * 10;
     SetMaxDCBrakeCurrent[0] = maxdcbrakecurrent >> 8;
     SetMaxDCBrakeCurrent[1] = maxdcbrakecurrent;
-    Send_CAN_1(SetMaxDCBrakeCurrent_ID, SetMaxDCBrakeCurrent, 2);
+    Send_CAN_BUS_1(SetMaxDCBrakeCurrent_ID, SetMaxDCBrakeCurrent, 2);
 }
+
 /**
  * 0: Drive not allowed
  * 1: Drive allowed
@@ -390,76 +468,7 @@ void setSetMaxDCBrakeCurrent(int16_t maxdcbrakecurrent) {
  */
 void setDriveEnable(bool driveenable) {
     DriveEnable[0] = driveenable;
-    Send_CAN_1(DriveEnable_ID, DriveEnable, 1);
-}
-void SendID_20(void) {
-    static uint8_t id = 0x20;
-    message_CAN_TX[0] = APPS_Percentage;  // APPS_percent 0-100%
-    message_CAN_TX[1] = Brake_Pressure;   // Brake_Pressure 0-50
-    // Target_Power byte 2,3 and 4
-    message_CAN_TX[2] = (Target_Power >> 16) & 0xFF;
-    message_CAN_TX[3] = (Target_Power >> 8) & 0xFF;
-    message_CAN_TX[4] = Target_Power & 0xFF;
-    // Current_Power byte 5,6 and 7
-    message_CAN_TX[5] = (Current_Power >> 16) & 0xFF;
-    message_CAN_TX[6] = (Current_Power >> 8) & 0xFF;
-    message_CAN_TX[7] = Current_Power & 0xFF;
-
-    Send_CAN_1(id, message_CAN_TX, 8);
-}
-
-void SendID_21(void) {
-    static uint8_t id = 0x21;
-    message_CAN_TX[0] = Inverter_Temperature >> 8;
-    message_CAN_TX[1] = Inverter_Temperature;
-    message_CAN_TX[2] = Motor_Temperature >> 8;
-    message_CAN_TX[3] = Motor_Temperature;
-    message_CAN_TX[4] = 0;
-    message_CAN_TX[5] = 0;
-    message_CAN_TX[6] = 0;
-    message_CAN_TX[7] = 0;
-
-    Send_CAN_1(id, message_CAN_TX, 8);
-}
-
-void SendID_22(void) {
-    static uint8_t id = 0x22;
-    message_CAN_TX[0] = Inverter_Faults >> 8;
-    message_CAN_TX[1] = Inverter_Faults;
-    message_CAN_TX[2] = LMT1;
-    message_CAN_TX[3] = LMT2;
-    message_CAN_TX[4] = VcuState;
-    message_CAN_TX[5] = 0;
-    message_CAN_TX[6] = 0;
-    message_CAN_TX[7] = 0;
-
-    Send_CAN_1(id, message_CAN_TX, 8);
-}
-
-void SendID_23(void) {
-    static uint8_t id = 0x23;
-    message_CAN_TX[0] = Inverter_Voltage >> 8;
-    message_CAN_TX[1] = Inverter_Voltage;
-    message_CAN_TX[2] = RPM >> 8;
-    message_CAN_TX[3] = RPM;
-    message_CAN_TX[4] = 0;
-    message_CAN_TX[5] = 0;
-    message_CAN_TX[6] = 0;
-    message_CAN_TX[7] = 0;
-    Send_CAN_1(id, message_CAN_TX, 8);
-}
-
-void SendID_420(void) {  // for debugging
-    static uint16_t id = 0x420;
-    message_CAN_TX[0] = ADC[0] >> 8;
-    message_CAN_TX[1] = ADC[0];
-    message_CAN_TX[2] = ADC[3] >> 8;
-    message_CAN_TX[3] = ADC[3];
-    message_CAN_TX[4] = APPS_Percentage;
-    message_CAN_TX[5] = APPS_Error;
-    message_CAN_TX[6] = 0;
-    message_CAN_TX[7] = 0;
-    Send_CAN_1(id, message_CAN_TX, 8);
+    Send_CAN_BUS_1(DriveEnable_ID, DriveEnable, 1);
 }
 
 void startupSequence() {
@@ -483,13 +492,17 @@ void startupSequence() {
 
 void PrintToConsole(uint8_t time) {
     // Print data-----
+
+
+
     currentMillis[3] = millis();
     if (currentMillis[3] - previousMillis[3] >= time) {
         // APPS_PrintValues();
-        printf("APPSA%dAPPSB%dAPPST%dAPPS_ERROR%dAPPS_Perc%dCAN_ERROR%d", ADC[0], ADC[3], APPS_Mean, APPS_Error, APPS_Percentage, status1);
-        printf("APPS_MIN%dAPPS_MAX%dAPPS_TOL%d", APPS_MIN_bits, APPS_MAX_bits, APPS_Tolerance_bits);
-        printf("VCU_TEMP%d", VCU_Temp);
-        printf("\r\n");
+
+        // printf("APPSA%dAPPSB%dAPPST%dAPPS_ERROR%dAPPS_Perc%dCAN_ERROR%d", ADC[0], ADC[3], APPS_Mean, APPS_Error, APPS_Percentage, status1);
+        // printf("APPS_MIN%dAPPS_MAX%dAPPS_TOL%d", APPS_MIN_bits, APPS_MAX_bits, APPS_Tolerance_bits);
+        // printf("VCU_TEMP%d", VCU_Temp);
+        // printf("\r\n");
 
         // printf("\r\n");
         previousMillis[3] = currentMillis[3];

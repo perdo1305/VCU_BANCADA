@@ -8165,7 +8165,7 @@
         &lt;ElementPosition dnOrder=&quot;4&quot; id=&quot;dfp&quot; x=&quot;20&quot; y=&quot;20&quot;/&gt;
         &lt;ElementPosition dnOrder=&quot;5&quot; id=&quot;power&quot; x=&quot;800&quot; y=&quot;20&quot;/&gt;
         &lt;ElementPosition dnOrder=&quot;6&quot; id=&quot;rcon&quot; x=&quot;960&quot; y=&quot;20&quot;/&gt;
-        &lt;ElementPosition dnOrder=&quot;7&quot; id=&quot;stdio&quot; x=&quot;697&quot; y=&quot;27&quot;/&gt;
+        &lt;ElementPosition dnOrder=&quot;7&quot; id=&quot;stdio&quot; x=&quot;699&quot; y=&quot;28&quot;/&gt;
         &lt;ElementPosition dnOrder=&quot;8&quot; id=&quot;tmr1&quot; x=&quot;27&quot; y=&quot;106&quot;/&gt;
         &lt;ElementPosition dnOrder=&quot;9&quot; id=&quot;tmr2&quot; x=&quot;28&quot; y=&quot;175&quot;/&gt;
         &lt;ElementPosition dnOrder=&quot;10&quot; id=&quot;tmr3&quot; x=&quot;27&quot; y=&quot;246&quot;/&gt;

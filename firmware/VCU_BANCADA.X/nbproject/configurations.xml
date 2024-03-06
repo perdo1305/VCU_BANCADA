@@ -53,6 +53,8 @@
       <itemPath>APPS.h</itemPath>
       <itemPath>main.h</itemPath>
       <itemPath>utils.h</itemPath>
+      <itemPath>CAN_utils.h</itemPath>
+      <itemPath>cansart_db_lc.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -119,7 +121,13 @@
       <itemPath>Makefile</itemPath>
       <itemPath>VCU_BANCADA.mc3</itemPath>
     </logicalFolder>
+    <itemPath>../../../CANSART/Controller Library/PIC32/Library/cansart.c</itemPath>
+    <itemPath>../../../CANSART/Controller Library/PIC32/Library/cansartP.c</itemPath>
+    <itemPath>../../../CANSART/Controller Library/PIC32/Library/driver.c</itemPath>
   </logicalFolder>
+  <sourceRootList>
+    <Elem>../../../CANSART/Controller Library/PIC32/Library</Elem>
+  </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
     <conf name="default" type="2">
